@@ -1,0 +1,1303 @@
+创建线程:	（main方法代表主线程）
+
+
+		Thread:		(多个线程之间无法共享线程类的实例变量,访问当前线程只需this)
+			public class FirstThread extends Thread
+			{
+				private int i ;
+				// 重写run方法，run方法的方法体就是线程执行体
+				public void run()
+				{
+					for ( ; i < 100 ; i++ )
+					{
+						// 当线程类继承Thread类时，直接使用this即可获取当前线程
+						// Thread对象的getName()返回当前该线程的名字
+						// 因此可以直接调用getName()方法返回当前线程的名
+						System.out.println(getName() +  " " + i);
+					}
+				}
+				public static void main(String[] args) 
+				{
+					for (int i = 0; i < 100;  i++)
+					{
+						// 调用Thread的currentThread方法获取当前线程
+						System.out.println(Thread.currentThread().getName()
+							+  " " + i);
+						if (i == 20)
+						{
+							// 创建、并启动第一条线程
+							new FirstThread().start();
+							// 创建、并启动第二条线程
+							new FirstThread().start();
+						}
+					}
+				}
+			}
+		
+		Runnable:	(多个线程之间可以共享类的实例属性,访问当前线程Thread.currentThread())
+			
+			public class SecondThread implements Runnable
+			{
+				private int i ;
+				// run方法同样是线程执行体
+				public void run()
+				{
+					for ( ; i < 100 ; i++ )
+					{
+						// 当线程类实现Runnable接口时，
+						// 如果想获取当前线程，只能用Thread.currentThread()方法。
+						System.out.println(Thread.currentThread().getName()
+							+ "  " + i);
+					}
+				}
+					
+				public static void main(String[] args) 
+				{
+					for (int i = 0; i < 100;  i++)
+					{
+						System.out.println(Thread.currentThread().getName()
+							+ "  " + i);
+						if (i == 20)
+						{
+							SecondThread st = new SecondThread();     // ①
+							// 通过new Thread(target , name)方法创建新线程
+							new Thread(st , "新线程1").start();
+							new Thread(st , "新线程2").start();
+						}
+					}
+				}
+			}
+		
+
+		Callable:	(与Runnable区别在于,call（）方法可以有返回值,允许抛出异常,访问当前线程Thread.currentThread())
+			
+			import java.util.concurrent.*;
+
+			// 实现Callable接口来实现线程
+			public class ThirdThread implements Callable<Integer>
+			{
+				// 实现call方法，作为线程执行体
+				public Integer call()
+				{
+					int i = 0;
+					for ( ; i < 100 ; i++ )
+					{
+						System.out.println(Thread.currentThread().getName()
+							+ " 的循环变量i的值：" + i);
+					}
+					// call()方法可以有返回值
+					return i;
+				}
+
+				public static void main(String[] args) 
+				{
+					// 创建Callable对象
+					ThirdThread rt = new ThirdThread();
+					// 使用FutureTask来包装Callable对象
+					FutureTask<Integer> task = new FutureTask<Integer>(rt);
+					for (int i = 0 ; i < 100 ; i++)
+					{
+						System.out.println(Thread.currentThread().getName()
+							+ " 的循环变量i的值：" + i);
+						if (i == 20)
+						{
+							// 实质还是以Callable对象来创建、并启动线程
+							new Thread(task , "有返回值的线程").start();
+						}
+					}
+					try
+					{
+						// 获取线程返回值
+						System.out.println("子线程的返回值：" + task.get());
+					}
+					catch (Exception ex)
+					{
+						ex.printStackTrace();
+					}
+				}
+			}
+
+
+/*****************************************************************************************
+
+线程的生命周期:
+		
+			      _________________________________
+			      |	阻			    塞|
+			      ——————————————————————————————————
+		sleep()time out> |			     ^ <——sleep()
+		IO return——————> |			     | <——IO阻塞
+		获得同步锁————>	 |			     | <——等待同步锁
+			resum()—>|			     | <——suspend()
+				 |			     |
+			         v      得到处理资源	     |
+		新建——————————>就绪——————————————————————> 运行——————————————————————>死亡（不要对死亡状态的线程调用start,对新建状态的线程调用两次start也是错误的）
+			start()	    <——————————————————————	  stop()、Error()或Exception
+				    yield或失去处理器资源	  run()/call()执行完成
+			
+
+
+*****************************************************************************************/
+
+
+ 控制线程:
+		join:
+			public class JoinThread extends Thread
+			{
+				// 提供一个有参数的构造器，用于设置该线程的名字
+				public JoinThread(String name)
+				{
+					super(name);
+				}
+				// 重写run方法，定义线程执行体
+				public void run()
+				{
+					for (int i = 0; i < 100 ; i++ )
+					{
+						System.out.println(getName() + "  " + i);
+					}
+				}
+				public static void main(String[] args)throws Exception
+				{
+					// 启动子线程
+					new JoinThread("新线程").start();
+					for (int i = 0; i < 100 ; i++ )
+					{
+						if (i == 20)
+						{
+							JoinThread jt = new JoinThread("被Join的线程");
+							jt.start();
+							// main线程调用了jt线程的join()方法，main线程
+							// 必须等jt执行结束才会向下执行
+							jt.join(); 
+						}
+						System.out.println(Thread.currentThread().getName()
+							+ "  " + i);
+					}
+				}
+			}
+
+		Daemon:		(后台线程)
+			
+
+			public class DaemonThread extends Thread
+			{
+				// 定义后台线程的线程执行体与普通线程没有任何区别
+				public void run()
+				{
+					for (int i = 0; i < 1000 ; i++ )
+					{
+						System.out.println(getName() + "  " + i);
+					}
+				}
+				public static void main(String[] args) 
+				{
+					DaemonThread t = new DaemonThread();
+					// 将此线程设置成后台线程
+					t.setDaemon(true);
+					// 启动后台线程
+					t.start();
+					for (int i = 0 ; i < 10 ; i++ )
+					{
+						System.out.println(Thread.currentThread().getName()
+							+ "  " + i);
+					}
+					// -----程序执行到此处，前台线程（main线程）结束------
+					// 后台线程也应该随之结束
+				}
+			}
+
+
+		sleep:
+			
+			import java.util.*;
+
+			public class SleepTest
+			{
+				public static void main(String[] args)
+					throws Exception
+				{
+					for (int i = 0; i < 10 ; i++ )
+					{
+						System.out.println("当前时间: " + new Date());
+						// 调用sleep方法让当前线程暂停1s。
+						Thread.sleep(1000);
+					}
+				}
+			}
+
+		
+		yield:		(和sleep相似,调用了yield之后,但不会阻塞该线程,只有优先级与当前线程相同或更高处于就绪状态的线程才有获得执行的机会)
+			
+			
+			public class YieldTest extends Thread
+			{
+				public YieldTest(String name)
+				{
+					super(name);
+				}
+				// 定义run方法作为线程执行体
+				public void run()
+				{
+					for (int i = 0; i < 50 ; i++ )
+					{
+						System.out.println(getName() + "  " + i);
+						// 当i等于20时，使用yield方法让当前线程让步
+						if (i == 20)
+						{
+							Thread.yield();
+						}
+					}
+				}
+				public static void main(String[] args)throws Exception
+				{
+					// 启动两条并发线程
+					YieldTest yt1 = new YieldTest("高级");
+					// 将ty1线程设置成最高优先级
+			//		yt1.setPriority(Thread.MAX_PRIORITY);
+					yt1.start();
+					YieldTest yt2 = new YieldTest("低级");
+					// 将yt2线程设置成最低优先级
+			//		yt2.setPriority(Thread.MIN_PRIORITY);
+					yt2.start();
+				}
+			}
+
+
+
+*****************************************************************************************/
+
+
+同步:
+
+	代码块:
+
+		public class DrawThread extends Thread
+		{
+			// 模拟用户账户
+			private Account account;
+			// 当前取钱线程所希望取的钱数
+			private double drawAmount;
+			public DrawThread(String name , Account account 
+				, double drawAmount)
+			{
+				super(name);
+				this.account = account;
+				this.drawAmount = drawAmount;
+			}
+			// 当多条线程修改同一个共享数据时，将涉及数据安全问题。
+			public void run()
+			{
+				// 使用account作为同步监视器，任何线程进入下面同步代码块之前，
+				// 必须先获得对account账户的锁定——其他线程无法获得锁，也就无法修改它
+				// 这种做法符合：“加锁 → 修改 → 释放锁”的逻辑
+				synchronized (account)
+				{
+					// 账户余额大于取钱数目
+					if (account.getBalance() >= drawAmount)
+					{
+						// 吐出钞票
+						System.out.println(getName()
+							+ "取钱成功！吐出钞票:" + drawAmount);
+						try
+						{
+						Thread.sleep(1);
+						}
+						catch (InterruptedException ex)
+						{
+						ex.printStackTrace();
+						}
+						// 修改余额
+						account.setBalance(account.getBalance() - drawAmount);
+						System.out.println("\t余额为: " + account.getBalance());			
+					}
+					else
+					{
+						System.out.println(getName() + "取钱失败！余额不足！");
+					}
+				}
+				//同步代码块结束，该线程释放同步锁
+			}
+		}
+
+
+	方法:
+
+		public class Account
+		{
+			// 封装账户编号、账户余额两个Field
+			private String accountNo;
+			private double balance;
+			public Account(){}
+			// 构造器
+			public Account(String accountNo , double balance)
+			{
+				this.accountNo = accountNo;
+				this.balance = balance;
+			}
+
+			// accountNo的setter和getter方法
+			public void setAccountNo(String accountNo)
+			{
+				this.accountNo = accountNo;
+			}
+			public String getAccountNo()
+			{
+				return this.accountNo;
+			}
+			// 因此账户余额不允许随便修改，所以只为balance提供getter方法，
+			public double getBalance()
+			{
+				return this.balance;
+			}
+
+			// 提供一个线程安全draw()方法来完成取钱操作
+			public synchronized void draw(double drawAmount)
+			{
+				// 账户余额大于取钱数目
+				if (balance >= drawAmount)
+				{
+					// 吐出钞票
+					System.out.println(Thread.currentThread().getName()
+						+ "取钱成功！吐出钞票:" + drawAmount);
+					try
+					{
+						Thread.sleep(1);
+					}
+					catch (InterruptedException ex)
+					{
+						ex.printStackTrace();
+					}
+					// 修改余额
+					balance -= drawAmount;
+					System.out.println("\t余额为: " + balance);
+				}
+				else
+				{
+					System.out.println(Thread.currentThread().getName()
+						+ "取钱失败！余额不足！");
+				}
+			}
+
+			// 下面两个方法根据accountNo来重写hashCode()和equals()方法
+			public int hashCode()
+			{
+				return accountNo.hashCode();
+			}
+			public boolean equals(Object obj)
+			{
+				if(this == obj)
+					return true;
+				if (obj !=null
+					&& obj.getClass() == Account.class)
+				{
+					Account target = (Account)obj;
+					return target.getAccountNo().equals(accountNo);
+				}
+				return false;
+			}
+		}
+
+		public class DrawThread extends Thread
+		{
+			// 模拟用户账户
+			private Account account;
+			// 当前取钱线程所希望取的钱数
+			private double drawAmount;
+			public DrawThread(String name , Account account 
+				, double drawAmount)
+			{
+				super(name);
+				this.account = account;
+				this.drawAmount = drawAmount;
+			}
+			// 当多条线程修改同一个共享数据时，将涉及数据安全问题。
+			public void run()
+			{
+				// 直接调用account对象的draw方法来执行取钱
+				// 同步方法的同步监视器是this，this代表调用draw()方法的对象。
+				// 也就是说：线程进入draw()方法之前，必须先对account对象的加锁。
+				account.draw(drawAmount);
+			}
+		}
+
+	同步锁:		(Lock)
+
+		
+		import java.util.concurrent.locks.*;
+
+		public class Account
+		{
+			// 定义锁对象
+			private final ReentrantLock lock = new ReentrantLock();
+			// 封装账户编号、账户余额两个Field
+			private String accountNo;
+			private double balance;
+			public Account(){}
+			// 构造器
+			public Account(String accountNo , double balance)
+			{
+				this.accountNo = accountNo;
+				this.balance = balance;
+			}
+
+			// accountNo的setter和getter方法
+			public void setAccountNo(String accountNo)
+			{
+				this.accountNo = accountNo;
+			}
+			public String getAccountNo()
+			{
+				return this.accountNo;
+			}
+			// 因此账户余额不允许随便修改，所以只为balance提供getter方法，
+			public double getBalance()
+			{
+				return this.balance;
+			}
+
+			// 提供一个线程安全draw()方法来完成取钱操作
+			public void draw(double drawAmount)
+			{
+				// 加锁
+				lock.lock();
+				try
+				{
+					// 账户余额大于取钱数目
+					if (balance >= drawAmount)
+					{
+						// 吐出钞票
+						System.out.println(Thread.currentThread().getName()
+							+ "取钱成功！吐出钞票:" + drawAmount);
+						try
+						{
+							Thread.sleep(1);
+						}
+						catch (InterruptedException ex)
+						{
+							ex.printStackTrace();
+						}
+						// 修改余额
+						balance -= drawAmount;
+						System.out.println("\t余额为: " + balance);
+					}
+					else
+					{
+						System.out.println(Thread.currentThread().getName()
+							+ "取钱失败！余额不足！");
+					}
+				}
+				finally
+				{
+					// 修改完成，释放锁
+					lock.unlock();
+				}		
+			}
+
+			// 下面两个方法根据accountNo来重写hashCode()和equals()方法
+			public int hashCode()
+			{
+				return accountNo.hashCode();
+			}
+			public boolean equals(Object obj)
+			{
+				if(this == obj)
+					return true;
+				if (obj !=null
+					&& obj.getClass() == Account.class)
+				{
+					Account target = (Account)obj;
+					return target.getAccountNo().equals(accountNo);
+				}
+				return false;
+			}
+		}
+
+
+		public class DrawThread extends Thread
+		{
+			// 模拟用户账户
+			private Account account;
+			// 当前取钱线程所希望取的钱数
+			private double drawAmount;
+			public DrawThread(String name , Account account 
+				, double drawAmount)
+			{
+				super(name);
+				this.account = account;
+				this.drawAmount = drawAmount;
+			}
+			// 当多条线程修改同一个共享数据时，将涉及数据安全问题。
+			public void run()
+			{
+				// 直接调用account对象的draw方法来执行取钱
+				// 同步方法的同步监视器是this，this代表调用draw()方法的对象。
+				// 也就是说：线程进入draw()方法之前，必须先对account对象的加锁。
+				account.draw(drawAmount);
+			}
+		}
+
+
+	死锁:
+		
+		class A
+		{
+			public synchronized void foo( B b )
+			{
+				System.out.println("当前线程名: " + Thread.currentThread().getName()
+					+ " 进入了A实例的foo方法" );     //①
+				try
+				{
+					Thread.sleep(200);
+				}
+				catch (InterruptedException ex)
+				{
+					ex.printStackTrace();
+				}
+				System.out.println("当前线程名: " + Thread.currentThread().getName()
+					+ " 企图调用B实例的last方法");    //③
+				b.last();
+			}
+			public synchronized void last()
+			{
+				System.out.println("进入了A类的last方法内部");
+			}
+		}
+		class B
+		{
+			public synchronized void bar( A a )
+			{
+				System.out.println("当前线程名: " + Thread.currentThread().getName()
+					+ " 进入了B实例的bar方法" );   //②
+				try
+				{
+					Thread.sleep(200);
+				}
+				catch (InterruptedException ex)
+				{
+					ex.printStackTrace();
+				}
+				System.out.println("当前线程名: " + Thread.currentThread().getName() 
+					+ " 企图调用A实例的last方法");  //④
+				a.last();
+			}
+			public synchronized void last()
+			{
+				System.out.println("进入了B类的last方法内部");
+			}
+		}
+		public class DeadLock implements Runnable
+		{
+			A a = new A();
+			B b = new B();
+			public void init()
+			{
+				Thread.currentThread().setName("主线程");
+				// 调用a对象的foo方法
+				a.foo(b);
+				System.out.println("进入了主线程之后");
+			}
+			public void run()
+			{
+				Thread.currentThread().setName("副线程");
+				// 调用b对象的bar方法
+				b.bar(a);
+				System.out.println("进入了副线程之后");
+			}
+			public static void main(String[] args)
+			{
+				DeadLock dl = new DeadLock();
+				// 以dl为target启动新线程
+				new Thread(dl).start();
+				// 调用init()方法
+				dl.init();
+			}
+		}
+
+
+*****************************************************************************************/
+
+
+线程通信:
+		传统线程通信:
+				账户:
+					public class Account
+					{
+						// 封装账户编号、账户余额两个Field
+						private String accountNo;
+						private double balance;
+						//标识账户中是否已有存款的旗标
+						private boolean flag = false;
+
+						public Account(){}
+						// 构造器
+						public Account(String accountNo , double balance)
+						{
+							this.accountNo = accountNo;
+							this.balance = balance;
+						}
+
+						// accountNo的setter和getter方法
+						public void setAccountNo(String accountNo)
+						{
+							this.accountNo = accountNo;
+						}
+						public String getAccountNo()
+						{
+							return this.accountNo;
+						}
+						// 因此账户余额不允许随便修改，所以只为balance提供getter方法，
+						public double getBalance()
+						{
+							return this.balance;
+						}
+
+						public synchronized void draw(double drawAmount)
+						{
+							try
+							{
+								// 如果flag为假，表明账户中还没有人存钱进去，取钱方法阻塞
+								if (!flag)
+								{
+									wait();
+								}
+								else
+								{
+									// 执行取钱
+									System.out.println(Thread.currentThread().getName() 
+										+ " 取钱:" +  drawAmount);
+									balance -= drawAmount;
+									System.out.println("账户余额为：" + balance);
+									// 将标识账户是否已有存款的旗标设为false。
+									flag = false;
+									// 唤醒其他线程
+									notifyAll();
+								}
+							}
+							catch (InterruptedException ex)
+							{
+								ex.printStackTrace();
+							}
+						}
+						public synchronized void deposit(double depositAmount)
+						{
+							try
+							{
+								// 如果flag为真，表明账户中已有人存钱进去，则存钱方法阻塞
+								if (flag)             //①
+								{
+									wait();
+								}
+								else
+								{
+									// 执行存款
+									System.out.println(Thread.currentThread().getName()
+										+ " 存款:" +  depositAmount);
+									balance += depositAmount;
+									System.out.println("账户余额为：" + balance);
+									// 将表示账户是否已有存款的旗标设为true
+									flag = true;
+									// 唤醒其他线程
+									notifyAll();
+								}
+							}
+							catch (InterruptedException ex)
+							{
+								ex.printStackTrace();
+							}
+						}
+
+						// 下面两个方法根据accountNo来重写hashCode()和equals()方法
+						public int hashCode()
+						{
+							return accountNo.hashCode();
+						}
+						public boolean equals(Object obj)
+						{
+							if(this == obj)
+								return true;
+							if (obj !=null
+								&& obj.getClass() == Account.class)
+							{
+								Account target = (Account)obj;
+								return target.getAccountNo().equals(accountNo);
+							}
+							return false;
+						}
+					}
+
+
+				取钱:
+					public class DrawThread extends Thread
+					{
+						// 模拟用户账户
+						private Account account;
+						// 当前取钱线程所希望取的钱数
+						private double drawAmount;
+						public DrawThread(String name , Account account 
+							, double drawAmount)
+						{
+							super(name);
+							this.account = account;
+							this.drawAmount = drawAmount;
+						}
+						// 重复100次执行取钱操作
+						public void run()
+						{
+							for (int i = 0 ; i < 100 ; i++ )
+							{
+								account.draw(drawAmount);
+							}
+						}
+					}
+
+				存钱:
+					public class DepositThread extends Thread
+					{
+						// 模拟用户账户
+						private Account account;
+						// 当前取钱线程所希望存款的钱数
+						private double depositAmount;
+						public DepositThread(String name , Account account 
+							, double depositAmount)
+						{
+							super(name);
+							this.account = account;
+							this.depositAmount = depositAmount;
+						}
+						// 重复100次执行存款操作
+						public void run()
+						{
+							for (int i = 0 ; i < 100 ; i++ )
+							{
+								account.deposit(depositAmount);
+							}
+						}
+					}
+
+				主程序:
+					public class DrawTest
+					{
+						public static void main(String[] args) 
+						{
+							// 创建一个账户
+							Account acct = new Account("1234567" , 0);
+							new DrawThread("取钱者" , acct , 800).start();
+							new DepositThread("存款者甲" , acct , 800).start();
+							new DepositThread("存款者乙" , acct , 800).start();
+							new DepositThread("存款者丙" , acct , 800).start();
+						}
+					}
+
+
+		Condition控制线程通信:
+					
+					import java.util.concurrent.*;
+					import java.util.concurrent.locks.*;
+					
+					public class Account
+					{
+						// 显式定义Lock对象
+						private final Lock lock = new ReentrantLock();
+						// 获得指定Lock对象对应的Condition
+						private final Condition cond  = lock.newCondition(); 
+						// 封装账户编号、账户余额两个Field
+						private String accountNo;
+						private double balance;
+						//标识账户中是否已有存款的旗标
+						private boolean flag = false;
+
+						public Account(){}
+						// 构造器
+						public Account(String accountNo , double balance)
+						{
+							this.accountNo = accountNo;
+							this.balance = balance;
+						}
+
+						// accountNo的setter和getter方法
+						public void setAccountNo(String accountNo)
+						{
+							this.accountNo = accountNo;
+						}
+						public String getAccountNo()
+						{
+							return this.accountNo;
+						}
+						// 因此账户余额不允许随便修改，所以只为balance提供getter方法，
+						public double getBalance()
+						{
+							return this.balance;
+						}
+
+						public void draw(double drawAmount)
+						{
+							// 加锁
+							lock.lock();
+							try
+							{
+								// 如果flag为假，表明账户中还没有人存钱进去，取钱方法阻塞
+								if (!flag)
+								{
+									cond.wait();
+								}
+								else
+								{
+									// 执行取钱
+									System.out.println(Thread.currentThread().getName() 
+										+ " 取钱:" +  drawAmount);
+									balance -= drawAmount;
+									System.out.println("账户余额为：" + balance);
+									// 将标识账户是否已有存款的旗标设为false。
+									flag = false;
+									// 唤醒其他线程
+									cond.signalAll();
+								}
+							}
+							catch (InterruptedException ex)
+							{
+								ex.printStackTrace();
+							}
+							// 使用finally块来释放锁
+							finally
+							{
+								lock.unlock();
+							}
+						}
+						public void deposit(double depositAmount)
+						{
+							lock.lock();
+							try
+							{
+								// 如果flag为真，表明账户中已有人存钱进去，则存钱方法阻塞
+								if (flag)             //①
+								{
+									cond.wait();
+								}
+								else
+								{
+									// 执行存款
+									System.out.println(Thread.currentThread().getName()
+										+ " 存款:" +  depositAmount);
+									balance += depositAmount;
+									System.out.println("账户余额为：" + balance);
+									// 将表示账户是否已有存款的旗标设为true
+									flag = true;
+									// 唤醒其他线程
+									cond.signalAll();
+								}
+							}
+							catch (InterruptedException ex)
+							{
+								ex.printStackTrace();
+							}
+							// 使用finally块来释放锁
+							finally
+							{
+								lock.unlock();
+							}
+						}
+
+						// 下面两个方法根据accountNo来重写hashCode()和equals()方法
+						public int hashCode()
+						{
+							return accountNo.hashCode();
+						}
+						public boolean equals(Object obj)
+						{
+							if(this == obj)
+								return true;
+							if (obj !=null
+								&& obj.getClass() == Account.class)
+							{
+								Account target = (Account)obj;
+								return target.getAccountNo().equals(accountNo);
+							}
+							return false;
+						}
+					}
+
+
+		阻塞队列（BlockingQueue）控制线程通信:
+					
+					import java.util.concurrent.*;
+
+					class Producer extends Thread
+					{
+						private BlockingQueue<String> bq;
+						public Producer(BlockingQueue<String> bq)
+						{
+							this.bq = bq;
+						}
+						public void run()
+						{
+							String[] strArr = new String[]
+							{
+								"Java",
+								"Struts",
+								"Spring"
+							};
+							for (int i = 0 ; i < 999999999 ; i++ )
+							{
+								System.out.println(getName() + "生产者准备生产集合元素！");
+								try
+								{
+									Thread.sleep(200);
+									// 尝试放入元素，如果队列已满，线程被阻塞
+									bq.put(strArr[i % 3]);
+								}
+								catch (Exception ex){ex.printStackTrace();}
+								System.out.println(getName() + "生产完成：" + bq);
+							}
+						}
+					}
+					class Consumer extends Thread
+					{
+						private BlockingQueue<String> bq;
+						public Consumer(BlockingQueue<String> bq)
+						{
+							this.bq = bq;
+						}
+						public void run()
+						{
+							while(true)
+							{
+								System.out.println(getName() + "消费者准备消费集合元素！");
+								try
+								{
+									Thread.sleep(200);
+									// 尝试取出元素，如果队列已空，线程被阻塞
+									bq.take();
+								}
+								catch (Exception ex){ex.printStackTrace();}
+								System.out.println(getName() + "消费完成：" + bq);
+							}
+						}
+					}
+					public class BlockingQueueTest2
+					{
+						public static void main(String[] args)
+						{
+							// 创建一个容量为3的BlockingQueue
+							BlockingQueue<String> bq = new ArrayBlockingQueue<>(1);
+							// 启动3条生产者线程
+							new Producer(bq).start();
+							new Producer(bq).start();
+							new Producer(bq).start();
+							// 启动一条消费者线程
+							new Consumer(bq).start();
+						}
+					}
+
+
+*****************************************************************************************/
+
+线程组:
+	class MyThread extends Thread
+	{
+		// 提供指定线程名的构造器
+		public MyThread(String name)
+		{
+			super(name);
+		}
+		// 提供指定线程名、线程组的构造器
+		public MyThread(ThreadGroup group , String name)
+		{
+			super(group, name);
+		}
+		public void run()
+		{
+			for (int i = 0; i < 20 ; i++ )
+			{
+				System.out.println(getName() + " 线程的i变量" + i);
+			}
+		}
+	}
+	public class ThreadGroupTest
+	{
+		public static void main(String[] args) 
+		{
+			// 获取主线程所在的线程组，这是所有线程默认的线程组
+			ThreadGroup mainGroup = Thread.currentThread().getThreadGroup();
+			System.out.println("主线程组的名字：" 
+				+ mainGroup.getName());
+			System.out.println("主线程组是否是后台线程组：" 
+				+ mainGroup.isDaemon());
+			new MyThread("主线程组的线程").start();
+			ThreadGroup tg = new ThreadGroup("新线程组");
+			tg.setDaemon(true);
+			System.out.println("tg线程组是否是后台线程组：" 
+				+ tg.isDaemon());
+			MyThread tt = new MyThread(tg , "tg组的线程甲");
+			tt.start();
+			new MyThread(tg , "tg组的线程乙").start();
+		}
+	}
+
+
+线程的异常处理:
+		
+
+		class MyExHandler implements Thread.UncaughtExceptionHandler 
+		{
+			//实现uncaughtException方法，该方法将处理线程的未处理异常
+			public void uncaughtException(Thread t, Throwable e)
+			{
+				System.out.println(t + " 线程出现了异常：" + e);
+			} 
+		}
+		public class ExHandler
+		{
+			public static void main(String[] args) 
+			{
+				// 设置主线程的异常处理器
+				Thread.currentThread().setUncaughtExceptionHandler
+					(new MyExHandler());
+				int a = 5 / 0;     //①
+				System.out.println("程序正常结束！");
+			}
+		}
+
+
+*****************************************************************************************/
+
+线程池:
+	JDK5:
+	
+		import java.util.concurrent.*;
+
+
+		// 实现Runnable接口来定义一个简单的线程类
+		class MyThread implements Runnable
+		{
+			public void run()
+			{
+				for (int i = 0; i < 100 ; i++ )
+				{
+					System.out.println(Thread.currentThread().getName()
+						+ "的i值为:" + i);
+				}
+			}
+		}
+		public class ThreadPoolTest
+		{
+			public static void main(String[] args) 
+				throws Exception
+			{
+				// 创建一个具有固定线程数（6）的线程池
+				ExecutorService pool = Executors.newFixedThreadPool(6);
+				// 向线程池中提交两个线程
+				pool.submit(new MyThread());
+				pool.submit(new MyThread());
+				// 关闭线程池
+				pool.shutdown();
+			}
+		}
+
+	JDK7:	(多核CPU)
+		没有返回值的大任务:
+					import java.util.concurrent.*;
+
+					// 继承RecursiveAction来实现"可分解"的任务
+					class PrintTask extends RecursiveAction
+					{
+						// 每个“小任务”只最多只打印50个数
+						private static final int THRESHOLD = 50;
+						private int start;
+						private int end;
+						// 打印从start到end的任务
+						public PrintTask(int start, int end)
+						{
+							this.start = start;
+							this.end = end;
+						}
+						@Override
+						protected void compute() 
+						{
+							// 当end与start之间的差小于THRESHOLD时，开始打印
+							if(end - start < THRESHOLD)
+							{
+								for (int i = start ; i < end ; i++ )
+								{
+									System.out.println(Thread.currentThread().getName()
+										+ "的i值：" + i);
+								}
+							}
+							else
+							{
+								// 如果当end与start之间的差大于THRESHOLD时，即要打印的数超过50个
+								// 将大任务分解成两个小任务。
+								int middle = (start + end) /2;
+								PrintTask left = new PrintTask(start, middle);
+								PrintTask right = new PrintTask(middle, end);
+								// 并行执行两个“小任务”
+								left.fork();
+								right.fork();
+							}
+						}
+					}
+					public class ForkJoinPoolTest
+					{
+						public static void main(String[] args) 
+							throws Exception
+						{
+							ForkJoinPool pool = new ForkJoinPool();
+							// 提交可分解的PrintTask任务
+							pool.submit(new PrintTask(0 , 300));
+							pool.awaitTermination(2, TimeUnit.SECONDS);
+							// 关闭线程池
+							pool.shutdown();
+						}
+					}
+
+
+		有返回值的大任务:
+					
+					import java.util.concurrent.*;
+					import java.util.*;
+
+					// 继承RecursiveTask来实现"可分解"的任务
+					class CalTask extends RecursiveTask<Integer>
+					{
+						// 每个“小任务”只最多只累加20个数
+						private static final int THRESHOLD = 20;
+						private int arr[];
+						private int start;
+						private int end;
+						// 累加从start到end的数组元素
+						public CalTask(int[] arr , int start, int end)
+						{
+							this.arr = arr;
+							this.start = start;
+							this.end = end;
+						}
+						@Override
+						protected Integer compute()
+						{
+							int sum = 0;
+							// 当end与start之间的差小于THRESHOLD时，开始进行实际累加
+							if(end - start < THRESHOLD)
+							{
+								for (int i = start ; i < end ; i++ )
+								{
+									sum += arr[i];
+								}
+								return sum;
+							}
+							else
+							{
+								// 如果当end与start之间的差大于THRESHOLD时，即要打印的数超过20个
+								// 将大任务分解成两个小任务。
+								int middle = (start + end) /2;
+								CalTask left = new CalTask(arr , start, middle);
+								CalTask right = new CalTask(arr , middle, end);
+								// 并行执行两个“小任务”
+								left.fork();
+								right.fork();
+								// 把两个“小任务”累加的结果合并起来
+								return left.join() + right.join();
+							}
+						}
+					}
+					public class Sum
+					{
+						public static void main(String[] args)
+							throws Exception
+						{
+							int[] arr = new int[100];
+							Random rand = new Random();
+							int total = 0;
+							// 初始化100个数字元素
+							for (int i = 0 , len = arr.length; i < len ; i++ )
+							{
+								int tmp = rand.nextInt(20);
+								// 对数组元素赋值，并将数组元素的值添加到total总和中。
+								total += (arr[i] = tmp);
+							}
+							System.out.println(total);
+
+							ForkJoinPool pool = new ForkJoinPool();
+							// 提交可分解的CalTask任务
+							Future<Integer> future = pool.submit(new CalTask(arr , 0 , arr.length));
+							System.out.println(future.get());
+							// 关闭线程池
+							pool.shutdown();
+						}
+					}
+
+
+*****************************************************************************************/
+
+
+ThreadLocal:	(为每一个使用该局部变量的线程提供一个变量值的副本,使每一个线程都可以独立地改变自己的副本,而不会和其他线程的副本冲突)
+		class Account
+		{
+			/* 定义一个ThreadLocal类型的变量，该变量将是一个线程局部变量
+			每个线程都会保留该变量的一个副本 */
+			private ThreadLocal<String> name = new ThreadLocal<>();
+			// 定义一个初始化name属性的构造器
+			public Account(String str)
+			{
+				this.name.set(str);
+				// 下面代码用于访问当前线程的name副本的值
+				System.out.println("---" + this.name.get());
+			}
+			// name的setter和getter方法
+			public String getName()
+			{
+				return name.get();
+			}
+			public void setName(String str)
+			{
+				this.name.set(str);
+			}
+		}
+		class MyTest extends Thread
+		{
+			// 定义一个Account属性
+			private Account account;
+			public MyTest(Account account, String name)
+			{
+				super(name);
+				this.account = account;
+			}
+			public void run()
+			{
+				// 循环10次
+				for (int i = 0 ; i < 10 ; i++)
+				{
+					// 当i == 6时输出将账户名替换成当前线程名
+					if (i == 6)
+					{
+						account.setName(getName());
+					}
+					// 输出同一个账户的账户名和循环变量
+					System.out.println(account.getName()
+						+ " 账户的i值：" + i);
+				}
+			}
+		}
+		public class ThreadLocalTest
+		{
+			public static void main(String[] args) 
+			{
+				// 启动两条线程，两条线程共享同一个Account
+				Account at = new Account("初始名");
+				/*
+				虽然两条线程共享同一个账户，即只有一个账户名
+				但由于账户名是ThreadLocal类型的，所以每条线程
+				都完全拥有各自的账户名副本，所以从i == 6之后，将看到两条
+				线程访问同一个账户时看到不同的账户名。
+				*/
+				new MyTest(at , "线程甲").start();
+				new MyTest(at , "线程乙").start ();
+			}
+		}
+
+
+*****************************************************************************************/
+
+
+	包装线程不安全的集合:
+				
+				HashMap m = Collection.synchronizedMap(new HashMap());

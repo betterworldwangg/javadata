@@ -1,0 +1,11 @@
+搭建开发环境：
+　　安装：不推荐安装在有空格的路径下，这样可能导致一些未知的问题，建议直接安装在根路径下。
+　　设置path环境变量：
+　　Windows：设置path(不区分大小写)值为jdk的bin目录
+　　Linux：设置PATH(区分大小写)步骤:
+　　进入home路径：ls -a
+　　打开.bash_profile：在PATH变量后添加jdk的bin目录，例如：PATH=.:$PATH:$HOME/bin:/home/yeeku/java/jdk1.7.0/bin
+　　($PATH用于引用原有变量)
+　　在.bash_profile文件最后导出PATH变量的语句,如：
+　　export  PATH
+　　重新登录Linux平台，或者执行如下命令：source .bash_profile

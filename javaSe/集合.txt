@@ -1,0 +1,155 @@
+集合：
+Collection：
+集合的遍历：
+　　>Iterator：
+　　
+　　import java.util.*;
+　　public class IteratorTest
+　　{
+　　	public static void main(String[] args) 
+　　	{
+　　		//创建一个集合
+　　		Collection books = new HashSet();
+　　		books.add("轻量级Java EE企业应用实战");
+　　		books.add("疯狂Java讲义");
+　　		books.add("疯狂Android讲义");
+　　		//获取books集合对应的迭代器
+　　		Iterator it = books.iterator();
+　　		while(it.hasNext())
+　　		{
+　　			//it.next()方法返回的数据类型是Object类型，
+　　			//需要强制类型转换
+　　			String book = (String)it.next();
+　　			System.out.println(book);
+　　			if (book.equals("疯狂Java讲义"))
+　　			{
+　　				//从集合中删除上一次next方法返回的元素
+　　				it.remove();
+　　			}
+　　			//对book变量赋值，不会改变集合元素本身
+　　			book = "测试字符串";   //①
+　　		}
+　　		System.out.println(books);
+　　	}
+　　}
+foreach：
+　　import java.util.*;
+　　public class ForeachTest
+　　{
+　　	public static void main(String[] args) 
+　　	{
+　　		//创建一个集合
+　　		Collection books = new HashSet();
+　　		books.add(new String("轻量级Java EE企业应用实战"));
+　　		books.add(new String("疯狂Java讲义"));
+　　		books.add(new String("疯狂Android讲义"));
+　　		for (Object obj : books)
+　　		{
+　　			//此处的book变量也不是集合元素本身
+　　			String book = (String)obj;
+　　			System.out.println(book);
+　　			if (book.equals("疯狂Android讲义"))
+　　			{
+　　				//下面代码会引发ConcurrentModificationException异常
+　　				books.remove(book);     //①
+　　			}
+　　		}
+　　		System.out.println(books);
+　　	}
+　　}
+　　Set：（无序）
+　　HashSet：（hashCode）
+　　LinkedHashSet：（hashCode ,链表）
+　　TreeSet：（有序：如果通过compareTo（Object obj）比较返回0，则相等，否则不等）
+　　>自然排序：
+　　import java.util.*;
+　　class Z implements Comparable
+　　{
+　　	int age;
+　　	public Z(int age)
+　　	{
+　　		this.age = age;
+　　	}
+　　	// 重写equals()方法，总是返回true
+　　	public boolean equals(Object obj)
+　　	{
+　　		return true;
+　　	}
+　　	//重写了compareTo(Object obj)方法，总是返回正整数
+　　	public int compareTo(Object obj)
+　　	{
+　　		return 1;
+　　	}
+　　}
+　　public class TreeSetTest2
+　　{
+　　	public static void main(String[] args) 
+　　	{
+　　		TreeSet set = new TreeSet();
+　　		Z z1 = new Z(6);
+　　		set.add(z1);
+　　		//输出true，表明添加成功
+　　		System.out.println(set.add(z1));    //①
+　　		//下面输出set集合，将看到有两个元素
+　　		System.out.println(set);
+　　		//修改set集合的第一个元素的age变量
+　　		 ((Z)(set.first())).age = 9;
+　　		//输出set集合的最后一个元素的age变量，将看到也变成了9
+　　		System.out.println(((Z)(set.last())).age);
+　　	}
+　　}
+　　>定制排序：
+　　import java.util.*;
+　　class M
+　　{
+　　	int age;
+　　	public M(int age)
+　　	{
+　　		this.age = age;
+　　	}
+　　	public String toString()
+　　	{
+　　		return "M[age:" + age + "]";
+　　	}
+　　}
+　　public class TreeSetTest4
+　　{
+　　	public static void main(String[] args) 
+　　	{
+　　		TreeSet ts = new TreeSet(new Comparator()
+　　		{
+　　			//根据M对象的age属性来决定大小
+　　			public int compare(Object o1, Object o2)
+　　			{
+　　				M m1 = (M)o1;
+　　				M m2 = (M)o2;
+　　				return m1.age > m2.age ? -1
+　　					: m1.age < m2.age ? 1 : 0;
+　　			}
+　　		});	
+　　		ts.add(new M(5));
+　　		ts.add(new M(-3));
+　　		ts.add(new M(9));
+　　		System.out.println(ts);
+　　	}
+　　}
+　　EnumSet：
+　　List：
+　　>ListIterator
+　　ArrayList：(线程不安全)Vector(线程安全)
+　　Queue：
+　　>PriorityQueue
+　　Deque：
+　　>ArrayDeque
+　　LinkedList：
+　　Map：
+　　>HashMap（线程不安全，允许使用null作为key和value）
+　　>HashTable(线程安全，不允许使用null作为key和value)
+　　>Properties
+　　LinkedHashMap：
+　　SortedMap：
+　　>TreeMap：
+　　WeekHashMap：
+　　IdentityMap：
+　　EnumMap：
+　　Collections：

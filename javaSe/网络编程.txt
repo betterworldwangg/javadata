@@ -1,0 +1,496 @@
+TCP:
+	server:
+		import java.net.*;
+		import java.io.*;
+
+		public class Server
+		{
+			public static void main(String[] args) 
+				throws IOException
+			{
+				// 创建一个ServerSocket，用于监听客户端Socket的连接请求
+				ServerSocket ss = new ServerSocket(30000);
+				// 采用循环不断接受来自客户端的请求
+				while (true)
+				{
+					// 每当接受到客户端Socket的请求，服务器端也对应产生一个Socket
+					Socket s = ss.accept();
+					// 将Socket对应的输出流包装成PrintStream
+					PrintStream ps = new PrintStream(s.getOutputStream());
+					// 进行普通IO操作
+					ps.println("您好，您收到了服务器的新年祝福！");
+					// 关闭输出流，关闭Socket
+					ps.close();
+					s.close();
+				}
+			}
+		}
+
+	client:
+		import java.net.*;
+		import java.io.*;
+
+		public class Client
+		{
+			public static void main(String[] args) 
+				throws IOException
+			{
+				Socket socket = new Socket("127.0.0.1" , 30000);   //①
+				// 将Socket对应的输入流包装成BufferedReader
+				BufferedReader br = new BufferedReader(
+				new InputStreamReader(socket.getInputStream()));
+				// 进行普通IO操作
+				String line = br.readLine();
+				System.out.println("来自服务器的数据：" + line);
+				// 关闭输入流、socket
+				br.close();
+				socket.close();
+			}
+		}
+
+
+	NIO非阻塞Sockett:
+			server:
+				import java.net.*;
+				import java.io.*;
+				import java.nio.*;
+				import java.nio.channels.*;
+				import java.nio.charset.*;
+
+				public class NServer
+				{
+					// 用于检测所有Channel状态的Selector
+					private Selector selector = null;
+					static final int PORT = 30000;
+					// 定义实现编码、解码的字符集对象
+					private Charset charset = Charset.forName("UTF-8");
+					public void init()throws IOException
+					{
+						selector = Selector.open();
+						// 通过open方法来打开一个未绑定的ServerSocketChannel实例
+						ServerSocketChannel server = ServerSocketChannel.open();
+						InetSocketAddress isa = new InetSocketAddress("127.0.0.1", PORT); 
+						// 将该ServerSocketChannel绑定到指定IP地址
+						server.bind(isa);
+						// 设置ServerSocket以非阻塞方式工作
+						server.configureBlocking(false);
+						// 将server注册到指定Selector对象
+						server.register(selector, SelectionKey.OP_ACCEPT);
+						while (selector.select() > 0)
+						{
+							// 依次处理selector上的每个已选择的SelectionKey
+							for (SelectionKey sk : selector.selectedKeys())
+							{
+								// 从selector上的已选择Key集中删除正在处理的SelectionKey
+								selector.selectedKeys().remove(sk);      //①
+								// 如果sk对应的Channel包含客户端的连接请求
+								if (sk.isAcceptable())        //②
+								{
+									// 调用accept方法接受连接，产生服务器端的SocketChannel
+									SocketChannel sc = server.accept();
+									// 设置采用非阻塞模式
+									sc.configureBlocking(false);
+									// 将该SocketChannel也注册到selector
+									sc.register(selector, SelectionKey.OP_READ);
+									// 将sk对应的Channel设置成准备接受其他请求
+									sk.interestOps(SelectionKey.OP_ACCEPT);
+								}
+								// 如果sk对应的Channel有数据需要读取
+								if (sk.isReadable())     //③
+								{
+									// 获取该SelectionKey对应的Channel，该Channel中有可读的数据
+									SocketChannel sc = (SocketChannel)sk.channel();
+									// 定义准备执行读取数据的ByteBuffer
+									ByteBuffer buff = ByteBuffer.allocate(1024);
+									String content = "";
+									// 开始读取数据
+									try
+									{
+										while(sc.read(buff) > 0)
+										{
+											buff.flip();
+											content += charset.decode(buff);
+										}
+										// 打印从该sk对应的Channel里读取到的数据
+										System.out.println("读取的数据：" + content);
+										// 将sk对应的Channel设置成准备下一次读取
+										sk.interestOps(SelectionKey.OP_READ);
+									}
+									// 如果捕捉到该sk对应的Channel出现了异常，即表明该Channel
+									// 对应的Client出现了问题，所以从Selector中取消sk的注册
+									catch (IOException ex)
+									{
+										// 从Selector中删除指定的SelectionKey
+										sk.cancel();
+										if (sk.channel() != null)
+										{
+											sk.channel().close();
+										}
+									}
+									// 如果content的长度大于0，即聊天信息不为空
+									if (content.length() > 0)
+									{
+										// 遍历该selector里注册的所有SelectionKey
+										for (SelectionKey key : selector.keys())
+										{
+											// 获取该key对应的Channel
+											Channel targetChannel = key.channel();
+											// 如果该channel是SocketChannel对象
+											if (targetChannel instanceof SocketChannel)
+											{
+												// 将读到的内容写入该Channel中
+												SocketChannel dest = (SocketChannel)targetChannel;
+												dest.write(charset.encode(content));
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+					public static void main(String[] args)
+						throws IOException
+					{
+						new NServer().init();
+					}
+				}
+
+			client:
+				import java.util.*;
+				import java.net.*;
+				import java.io.*;
+				import java.nio.*;
+				import java.nio.channels.*;
+				import java.nio.charset.*;
+
+				public class NClient
+				{
+					// 定义检测SocketChannel的Selector对象
+					private Selector selector = null;
+					static final int PORT = 30000;
+					// 定义处理编码和解码的字符集
+					private Charset charset = Charset.forName("UTF-8");
+					// 客户端SocketChannel
+					private SocketChannel sc = null;
+					public void init()throws IOException
+					{
+						selector = Selector.open();
+						InetSocketAddress isa = new InetSocketAddress("127.0.0.1", PORT);
+						// 调用open静态方法创建连接到指定主机的SocketChannel
+						sc = SocketChannel.open(isa);
+						// 设置该sc以非阻塞方式工作
+						sc.configureBlocking(false);
+						// 将SocketChannel对象注册到指定Selector
+						sc.register(selector, SelectionKey.OP_READ);
+						// 启动读取服务器端数据的线程
+						new ClientThread().start();
+						// 创建键盘输入流
+						Scanner scan = new Scanner(System.in);
+						while (scan.hasNextLine())
+						{
+							// 读取键盘输入
+							String line = scan.nextLine();
+							// 将键盘输入的内容输出到SocketChannel中
+							sc.write(charset.encode(line));
+						}
+					}
+					// 定义读取服务器数据的线程
+					private class ClientThread extends Thread
+					{
+						public void run()
+						{
+							try
+							{
+								while (selector.select() > 0)    //①
+								{
+									// 遍历每个有可用IO操作Channel对应的SelectionKey
+									for (SelectionKey sk : selector.selectedKeys())
+									{
+										// 删除正在处理的SelectionKey
+										selector.selectedKeys().remove(sk);
+										// 如果该SelectionKey对应的Channel中有可读的数据
+										if (sk.isReadable())
+										{
+											// 使用NIO读取Channel中的数据
+											SocketChannel sc = (SocketChannel)sk.channel();
+											ByteBuffer buff = ByteBuffer.allocate(1024);
+											String content = "";
+											while(sc.read(buff) > 0)
+											{
+												sc.read(buff); 
+												buff.flip();
+												content += charset.decode(buff);
+											}
+											// 打印输出读取的内容
+											System.out.println("聊天信息：" + content);
+											// 为下一次读取作准备
+											sk.interestOps(SelectionKey.OP_READ);
+										}
+									}
+								}
+							}
+							catch (IOException ex)
+							{
+								ex.printStackTrace();
+							}
+						}
+					}
+					public static void main(String[] args)
+						throws IOException
+					{
+						new NClient().init();
+					}
+				}
+
+
+	AIO非阻塞:
+			server:
+				import java.net.*;
+				import java.nio.*;
+				import java.nio.channels.*;
+				import java.util.concurrent.*;
+
+				public class SimpleAIOServer
+				{
+					static final int PORT = 30000;
+					public static void main(String[] args)
+						throws Exception
+					{
+						try(
+							// ①创建AsynchronousServerSocketChannel对象。
+							AsynchronousServerSocketChannel serverChannel = 
+								AsynchronousServerSocketChannel.open())
+						{
+							// ②指定在指定地址、端口监听。
+							serverChannel.bind(new InetSocketAddress(PORT));
+							while (true)
+							{
+								// ③采用循环接受来自客户端的连接
+								Future<AsynchronousSocketChannel> future
+									= serverChannel.accept();
+								// 获取连接完成后返回的AsynchronousSocketChannel
+								AsynchronousSocketChannel socketChannel = future.get();
+								// 执行输出。
+								socketChannel.write(ByteBuffer.wrap("欢迎你来自AIO的世界！"
+									.getBytes("UTF-8"))).get();
+							}
+						}
+					}
+				}
+
+
+			client:
+				
+				import java.net.*;
+				import java.nio.*;
+				import java.nio.channels.*;
+				import java.nio.charset.*;
+
+				public class SimpleAIOClient
+				{
+					static final int PORT = 30000;
+					public static void main(String[] args)
+						throws Exception
+					{
+						// 用于读取数据的ByteBuffer。
+						ByteBuffer buff = ByteBuffer.allocate(1024);
+						Charset utf = Charset.forName("utf-8");
+						try(
+							// ①创建AsynchronousSocketChannel对象
+							AsynchronousSocketChannel clientChannel 
+								= AsynchronousSocketChannel.open())
+						{
+							// ②连接远程服务器
+							clientChannel.connect(new InetSocketAddress("127.0.0.1" 
+								, PORT)).get();     //④
+							buff.clear();
+							// ③从clientChannel中读取数据
+							clientChannel.read(buff).get();     //⑤
+							buff.flip();
+							// 将buff中内容转换为字符串
+							String content = utf.decode(buff).toString();
+							System.out.println("服务器信息：" + content);
+						}
+					}
+				}
+
+***************************************************************************************************/
+
+UDP:
+
+
+	DatagramSocket:
+	MulticastSocket:	(实现多点广播)
+***************************************************************************************************/
+
+使用代理服务器:
+		
+		Proxy:	(创建连接)
+			
+			import java.io.*;
+			import java.net.*;
+			import java.util.*;
+
+			public class ProxyTest
+			{
+				// 下面是代理服务器的地址和端口，
+				// 换成实际有效的代理服务器的地址和端口
+				final String PROXY_ADDR = "129.82.12.188";
+				final int PROXY_PORT = 3124;
+				// 定义需要访问的网站地址
+				String urlStr = "http://www.crazyit.org";
+				public void init() 
+					throws IOException , MalformedURLException
+				{
+					URL url = new URL(urlStr);
+					// 创建一个代理服务器对象
+					Proxy proxy = new Proxy(Proxy.Type.HTTP 
+						, new InetSocketAddress(PROXY_ADDR , PROXY_PORT));
+					// 使用指定的代理服务器打开连接
+					URLConnection conn = url.openConnection(proxy);
+					// 设置超时时长。
+					conn.setConnectTimeout(5000);
+					try(
+						// 通过代理服务器读取数据的Scanner
+						Scanner scan = new Scanner(conn.getInputStream(), "utf-8");
+						PrintStream ps = new PrintStream("index.htm"))
+					{
+						while (scan.hasNextLine())
+						{
+							String line = scan.nextLine();
+							// 在控制台输出网页资源内容
+							System.out.println(line);
+							// 将网页资源内容输出到指定输出流
+							ps.println(line);
+						}
+					}
+				}
+				public static void main(String[] args)
+					throws IOException , MalformedURLException
+				{
+					new ProxyTest().init();
+				}
+			}
+
+
+		ProxySelector:	(自动选择代理服务器)
+				
+
+				import java.io.*;
+				import java.net.*;
+				import java.util.*;
+
+				public class ProxySelectorTest
+				{
+					// 下面是代理服务器的地址和端口，
+					// 随便一个代理服务器的地址和端口
+					final String PROXY_ADDR = "139.82.12.188";
+					final int PROXY_PORT = 3124;
+					// 定义需要访问的网站地址
+					String urlStr = "http://www.crazyit.org";
+					public void init() 
+						throws IOException , MalformedURLException
+					{
+						// 注册默认的代理选择器
+						ProxySelector.setDefault(new ProxySelector()
+						{
+							@Override
+							public void connectFailed(URI uri
+								, SocketAddress sa, IOException ioe)
+							{
+								System.out.println("无法连接到指定代理服务器！");
+							}
+							// 根据"业务需要"返回特定的对应的代理服务器
+							@Override
+							public List<Proxy> select(URI uri)
+							{
+								// 本程序总是返回某个固定的代理服务器。
+								List<Proxy> result = new ArrayList<>();
+								result.add(new Proxy(Proxy.Type.HTTP 
+									, new InetSocketAddress(PROXY_ADDR , PROXY_PORT)));
+								return result;
+							}
+						});
+						URL url = new URL(urlStr);
+						// 没有指定代理服务器、直接打开连接
+						URLConnection conn = url.openConnection();   //①
+						// 设置超时时长。
+						conn.setConnectTimeout(3000);
+						try(
+							// 通过代理服务器读取数据的Scanner
+							Scanner scan = new Scanner(conn.getInputStream());
+							PrintStream ps = new PrintStream("index.htm"))
+						{
+							while (scan.hasNextLine())
+							{
+								String line = scan.nextLine();
+								// 在控制台输出网页资源内容
+								System.out.println(line);
+								// 将网页资源内容输出到指定输出流
+								ps.println(line);
+							}
+						}
+					}
+					public static void main(String[] args)
+						throws IOException , MalformedURLException
+					{
+						new ProxySelectorTest().init();
+					}
+				}
+
+		改变系统属性改变默认代理服务器:
+						import java.io.*;
+						import java.net.*;
+						import java.util.*;
+
+						public class DefaultProxySelectorTest
+						{
+							// 定义需要访问的网站地址
+							static String urlStr = "http://www.crazyit.org";
+							public static void main(String[] args) throws Exception
+							{
+								// 获取系统的默认属性
+								Properties props = System.getProperties();
+								// 通过系统属性设置HTTP访问所用的代理服务器的主机地址、端口
+								props.setProperty("http.proxyHost", "192.168.10.96");
+								props.setProperty("http.proxyPort", "8080");
+								// 通过系统属性设置HTTP访问无需使用代理服务器的主机
+								// 可以使用*通配符，多个地址用|分隔
+								props.setProperty("http.nonProxyHosts", "localhost|192.168.10.*");
+								// 通过系统属性设置HTTPS访问所用的代理服务器的主机地址、端口
+								props.setProperty("https.proxyHost", "192.168.10.96");
+								props.setProperty("https.proxyPort", "443");
+								/* DefaultProxySelector不支持https.nonProxyHosts属性，
+								 DefaultProxySelector直接按http.nonProxyHosts的设置规则处理 */
+								// 通过系统属性设置FTP访问所用的代理服务器的主机地址、端口
+								props.setProperty("ftp.proxyHost", "192.168.10.96");
+								props.setProperty("ftp.proxyPort", "2121");
+								// 通过系统属性设置FTP访问无需使用代理服务器的主机
+								props.setProperty("ftp.nonProxyHosts", "localhost|192.168.10.*");
+								// 通过系统属性设置设置SOCKS代理服务器的主机地址、端口
+								props.setProperty("socks.ProxyHost", "192.168.10.96");
+								props.setProperty("socks.ProxyPort", "1080");
+								// 获取系统默认的代理选择器
+								ProxySelector selector = ProxySelector.getDefault();   // ①
+								System.out.println("系统默认的代理选择器：" + selector);
+								// 根据URI动态决定所使用的代理服务器
+								System.out.println("系统为ftp://www.crazyit.org选择的代理服务器为："
+									+ ProxySelector.getDefault().select(new URI("ftp://www.crazyit.org"))); //②
+								URL url = new URL(urlStr);
+								// 直接打开连接，默认的代理选择器会使用http.proxyHost、
+								// http.proxyPort系统属性设置的代理服务器，
+								// 如果无法连接代理服务器，默认的代理选择器会尝试直接连接
+								URLConnection conn = url.openConnection();   //③
+								// 设置超时时长。
+								conn.setConnectTimeout(3000);
+								try(
+									Scanner scan = new Scanner(conn.getInputStream() , "utf-8"))
+								{
+									// 读取远程主机的内容
+									while(scan.hasNextLine())
+									{
+										System.out.println(scan.nextLine());
+									}
+								}
+							}
+						}

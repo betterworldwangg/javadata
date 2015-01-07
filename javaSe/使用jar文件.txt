@@ -1,0 +1,25 @@
+使用jar文件：
+　　>jar cf test.jar test(将test路径下的全部内容生产一个test.jar)
+　　>jar cvf test.jar test(显示压缩过程)
+　　>jar cvfM test.jar test(不使用清单文件)
+　　>jar cvfm test.jar manifest.mf test(自定义清单文件内容)
+	
+　　清单文件：key：<空格>value
+　　清单文件内容格式要求如下：
+　　>>每行只能定义一个key-value对
+　　>>文件开头不能有空行
+　　>>文件必须以一个空行结束
+　　>jar tf test.jar(查看jar包内容)
+　　>>jar tf test.jar > a.txt(显示信息重定向到a.txt)
+　　>jar tvf test.jar(查看jar包详细内容)
+　　>jar xf test.jar(解压缩)
+　　>jar xvf test.jar(带提示信息解压缩)
+　　>jar uf test.jar Hello.class(更新test.jar文件中的Hello.class文件)
+　　>jar uvf test.jar Hello.class(更新时显示详细信息)
+　　创建可执行的jar包：
+　　>jar cvfe test.jar Test *.class(把当前目录下的所有*.class文件压缩到test.jar中，并指定使用Test类作为程序的入口)
+　　运行上面的jar包两种方式：
+　　>>使用jar命令：java -jar test.jar
+　　>>使用javaw命令：javaw test.jar
+
+    >>将文件放到META-INF文件夹,使用eclipse

@@ -1,0 +1,108 @@
+注释：
+　　>单行 //
+　　>多行 /*.......*/
+　　>文档 ：/**....*/
+　　例：
+　　package yeeku;
+　　
+　　/**
+　　 * Description:
+　　 * <br/>网站: <a href="http://www.crazyit.org">疯狂Java联盟</a> 
+　　 * <br/>Copyright (C), 2001-2012, Yeeku.H.Lee
+　　 * <br/>This program is protected by copyright laws.
+　　 * <br/>Program Name:
+　　 * <br/>Date:
+　　 * @author Yeeku.H.Lee kongyeeku@163.com
+　　 * @version 1.0
+　　 */
+　　public class Test
+　　{
+　　	/**
+　　	 * 简单测试Field
+　　	 */
+　　	public int age;
+　　	/**
+　　	 * Test类的测试构造器
+　　	 */
+　　	public Test()
+　　	{
+　　	}
+　　}
+　　package lee;
+　　/**
+　　 * Description:
+　　 * <br/>网站: <a href="http://www.crazyit.org">疯狂Java联盟</a> 
+　　 * <br/>Copyright (C), 2001-2012, Yeeku.H.Lee
+　　 * <br/>This program is protected by copyright laws.
+　　 * <br/>Program Name:
+　　 * <br/>Date:
+　　 * @author Yeeku.H.Lee kongyeeku@163.com
+　　 * @version 1.0
+　　 */
+　　public class JavadocTest
+　　{
+　　	/**
+　　	 * 简单测试Field
+　　	 */
+　　	protected String name;
+　　	/**
+　　	 * 主方法，程序的入口
+　　	 */
+　　	public static void main(String[] args) 
+　　	{
+　　		System.out.println("Hello World!");
+　　	}
+　　}
+　　package yeeku;
+　　
+　　/**
+　　 * Description:
+　　 * <br/>网站: <a href="http://www.crazyit.org">疯狂Java联盟</a> 
+　　 * <br/>Copyright (C), 2001-2012, Yeeku.H.Lee
+　　 * <br/>This program is protected by copyright laws.
+　　 * <br/>Program Name:
+　　 * <br/>Date:
+　　 * @author Yeeku.H.Lee kongyeeku@163.com
+　　 * @version 1.0
+　　 */
+　　public class JavadocTagTest
+　　{
+　　	/**
+　　	 * 一个得到打招呼字符串的方法。
+　　	 * @param name 该参数指定向谁打招呼。
+　　	 * @return 返回打招呼的字符串。
+　　	 */
+　　	public String hello(String name)
+　　	{
+　　		return name + "，你好！";
+　　	}
+　　}
+　　Package.html：
+　　<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+　　<HTML>
+　　 <HEAD>
+　　  <TITLE></TITLE>
+　　 </HEAD>
+　　 <BODY>
+　　包描述信息
+　　 </BODY>
+　　</HTML>
+--------->javadoc 选项java源文件/包
+--------->为上面三个类生成API：javadoc -d apidoc -windowtitle 测试 -doctitle 学习javadoc工具测试API文档 -header我的类 -version -author *Test.java
+--------->folder{lee(package.html,JavadocTest.java),yeeku(package.htm,JavadocTagTest.java,Test.java)}
+	生成包描述API：javadoc -d apidoc -windowtitle 测试 -doctitle 学习javadoc工具测试API文档 -header我的类 -version -author lee yeeku
+----->-d<directory>api存放目录
+----->-windowtitle<test>api文档浏览器窗口标题
+----->-doctitle指定一个html文档，指定概述页面标题（处于多个包下源文件生成的api才有概述页面）
+----->-author(提取author）
+----->-version(提取version)
+------>javadoc -help
+Javadoc标记：
+------>@see ：“参见”，用于指定交叉参考的内容（类，接口，方法，构造器，field）
+------>@deprecated ：不推荐使用的方法（类，接口，方法，构造器）
+------>@author ：程序作者（类，接口）
+------>@version ：程序版本（类，接口）
+------>@param ：方法参数说明信息（方法，构造器）
+------>@return ：方法返回值的说明信息（方法，构造器）
+------>@exception ：指定异常的类型（方法，构造器）
+------>@throws 抛出的异常,和exception同意（方法，构造器）

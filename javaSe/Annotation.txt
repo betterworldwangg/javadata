@@ -1,0 +1,339 @@
+基本Annotation:
+		>@Override		(方法)（重写）
+		>@Deprecated		（类、方法、接口）（已过时）
+		>@SuppressWarnings	（被修饰的元素以及所有子元素）（抑制编译器警告）
+		>@SafeVarargs		(抑制堆污染警告)
+					例:
+						List list = new ArrayList<Integer>();
+						list.add(20);
+						//当把一个不带泛型的对象赋给一个带泛型的变量,往往就会发生这种“堆污染”
+						List<String> ls = list;
+		
+
+元Annotation:
+		>Retention(value=RetentionPolicy.*)	(指定被修饰的Annotation可以保留多长时间,如果只有一个可去掉"value=")
+						>>RetentionPolicy.CLASS:把Annotation记录在class文件中,JVM不保留
+						>>RetentionPolicy.RUNTIME:记录在class文件中,JVM保留,可通过反射获取该Annotation
+						>>RetentionPolicy.SOURCE:只保留在源码中
+		>@Target(value=ElementType.*)		(指定被修饰的Annotation能用于修饰哪些程序单元,如果只有一个可去掉"value=")
+						>>ElementType.ANNOTATION_TYPE:只能修饰Annotation
+						>>ElementType.CONSTRUCTOR:修饰构造器
+						>>ElementType.FIELD:成员变量
+						>>ElementType.LOCAL_VARIABLE:局部变量
+						>>ElementType.METHOD:方法
+						>>ElementType.PACKAGE:包定义
+						>>ElementType.PARAMETER:参数
+						>>ElementType.TYPE:类、接口（包括注释类型）、枚举
+		>@Documented				(如果定义Annotation类时使用了@Document修饰,则所有使用该Annotation修饰的程序元素的API文档
+							 中将会包含该Annotation说明
+							 )
+		>@Inherited				(Inherited元Annotation指定被它修饰的Annotation将具有继承性,如果某个类被@A（该Annotation使用了@Inherited）则子类将自动被@A修饰)
+
+
+/*********************************************************************************************************
+
+自定义Annotation:
+		定义:
+			public @interface Test
+			{
+			}
+			public class MyClass
+			{
+				@Test
+				public void info()
+				{
+					...
+				}
+			}
+			带成员变量:
+					public @interface MyTag
+					{
+						String name();
+						int age();
+					}
+					public  class Test
+					{
+						@MyTag(name="xx" , age = 6)
+						public void info()
+						{
+							...
+						}
+						...
+					}
+					默认值:
+						public @interface MyTag
+						{
+							String name() default 'yeeku';
+							int age() default 32;
+						}
+						public class Test
+						{
+							@MyTag//可以指定也可以不指定
+							public void info()
+							{
+								...
+							}
+							...
+						}
+
+
+/*********************************************************************************************************
+
+提取Annotation:
+		获取注释:
+			Annotation[] aArray = Class.forName("Test").getMethod("info").getAnnotations();
+			for(Annotation an : aArray)
+			{
+				System.out.println(an);
+			}
+		
+		获取注释里的元数据:
+				Annotation[] annotation = tt.getClass().getMethod("info").getAnnotation();
+				for(Annotation tag :　annotation)
+				{
+					if(tag instanceof MyTag1)
+					{
+						System.out.println("Tag is:"+tag);
+						System.out.println("tag.name()"+((MyTag1)tag).method1());
+						System.out.println("tag.age()"+((MyTag1)tag).method2());
+					}
+
+					if(tag instanceof MyTag2)
+					{
+						System.out.println("Tag is:"+tag);
+						System.out.println("tag.name()"+((MyTag2)tag).method1());
+						System.out.println("tag.age()"+((MyTag2)tag).method2());
+					}
+				}
+
+
+/*********************************************************************************************************
+
+
+编译时处理Annotation:
+			Annotation Persistent:
+
+						import java.lang.annotation.*;
+						
+						@Target(ElementType.TYPE)
+						@Retention(RetentionPolicy.SOURCE)
+						@Documented
+						public @interface Persistent
+						{
+							String table();
+						}
+
+			Annotation Id:
+				
+						import java.lang.annotation.*;
+						
+						@Target(ElementType.FIELD)
+						@Retention(RetentionPolicy.SOURCE)
+						@Documented
+						public @interface Id
+						{
+							String column();
+							String type();
+							String generator();
+						}
+			Annotation Property:
+
+
+						import java.lang.annotation.*;
+						
+						@Target(ElementType.FIELD)
+						@Retention(RetentionPolicy.SOURCE)
+						@Documented
+						public @interface Property
+						{
+							String column();
+							String type();
+						}
+
+
+
+			要处理的类Person:
+						
+
+
+						@Persistent(table="person_inf")
+						public class Person
+						{
+							@Id(column="person_id",type="integer",generator="identity")
+							private int id;
+							@Property(column="person_name",type="string")
+							private String name;
+							@Property(column="person_age",type="integer")
+							private int age;
+
+							//无参数的构造器
+							public Person()
+							{
+							}
+							//初始化全部成员变量的构造器
+							public Person(int id , String name , int age)
+							{
+								this.id = id;
+								this.name = name;
+								this.age = age;
+							}
+
+							// 下面省略各Field的setter和getter方法
+							//id的setter和getter方法
+							public void setId(int id)
+							{
+								this.id = id;
+							}
+							public int getId()
+							{
+								return this.id;
+							}
+
+							//name的setter和getter方法
+							public void setName(String name)
+							{
+								this.name = name;
+							}
+							public String getName()
+							{
+								return this.name;
+							}
+
+							//age的setter和getter方法
+							public void setAge(int age)
+							{
+								this.age = age;
+							}
+							public int getAge()
+							{
+								return this.age;
+							}
+
+						}
+
+
+			处理类:
+					import javax.annotation.processing.*;
+					import javax.lang.model.element.*;
+					import javax.lang.model.*;
+
+					import java.io.*;
+					import java.util.*;
+
+					@SupportedSourceVersion(SourceVersion.RELEASE_7)
+					// 指定可处理@Persistent、@Id、@Property三个Annotation
+					@SupportedAnnotationTypes({"Persistent" , "Id" , "Property"})
+					public class HibernateAnnotationProcessor
+						extends AbstractProcessor
+					{
+						// 循环处理每个需要处理的程序对象
+						public boolean process(Set<? extends TypeElement> annotations
+							, RoundEnvironment roundEnv)
+						{
+							// 定义一个文件输出流，用于生成额外的文件
+							PrintStream ps = null;
+							try
+							{
+								// 遍历每个被@Persistent修饰的class文件
+								for (Element t : roundEnv.getElementsAnnotatedWith(Persistent.class))
+								{
+									// 获取正在处理的类名
+									Name clazzName = t.getSimpleName();
+									// 获取类定义前的@Persistent Annotation
+									Persistent per = t.getAnnotation(Persistent.class);
+									// 创建文件输出流
+									ps = new PrintStream(new FileOutputStream(clazzName
+										+ ".hbm.xml"));
+									// 执行输出
+									ps.println("<?xml version=\"1.0\"?>");
+									ps.println("<!DOCTYPE hibernate-mapping PUBLIC");
+									ps.println("	\"-//Hibernate/Hibernate "
+										+ "Mapping DTD 3.0//EN\"");
+									ps.println("	\"http://www.hibernate.org/dtd/"
+										+ "hibernate-mapping-3.0.dtd\">");
+									ps.println("<hibernate-mapping>");
+									ps.print("	<class name=\"" + t);
+									// 输出per的table()的值
+									ps.println("\" table=\"" + per.table() + "\">");
+									for (Element f : t.getEnclosedElements())
+									{
+										// 只处理Field上的Annotation
+										if (f.getKind() == ElementKind.FIELD)   //①
+										{
+											// 获取Field定义前的@Id Annotation
+											Id id = f.getAnnotation(Id.class);      //②
+											// 当@Id Annotation存在时输出<id.../>元素
+											if(id != null)
+											{
+												ps.println("		<id name=\""
+													+ f.getSimpleName()
+													+ "\" column=\"" + id.column()
+													+ "\" type=\"" + id.type()
+													+ "\">");
+												ps.println("		<generator class=\""
+													+ id.generator() + "\"/>");
+												ps.println("		</id>");
+											}
+											// 获取Field定义前的@Property Annotation
+											Property p = f.getAnnotation(Property.class);  //③
+											// 当@Property Annotation存在时输出<property.../>元素
+											if (p != null)
+											{
+												ps.println("		<property name=\""
+													+ f.getSimpleName()
+													+ "\" column=\"" + p.column()
+													+ "\" type=\"" + p.type()
+													+ "\"/>");
+											}
+										}
+									}
+									ps.println("	</class>");
+									ps.println("</hibernate-mapping>");
+								}
+							}
+							catch (Exception ex)
+							{
+								ex.printStackTrace();
+							}
+							finally
+							{
+								if (ps != null)
+								{
+									try
+									{
+										ps.close();
+									}
+									catch (Exception ex)
+									{
+										ex.printStackTrace();
+									}
+								}
+							}
+							return true;
+						}
+					}
+
+
+
+		命令行输入:	javac -processor HibernateAnnotationProcessor Person.java
+
+
+
+		生成结果:
+				Person.hbm.xml:
+
+						<?xml version="1.0"?>
+						<!DOCTYPE hibernate-mapping PUBLIC
+							"-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+							"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+						<hibernate-mapping>
+							<class name="Person" table="person_inf">
+								<id name="id" column="person_id" type="integer">
+								<generator class="identity"/>
+								</id>
+								<property name="name" column="person_name" type="string"/>
+								<property name="age" column="person_age" type="integer"/>
+							</class>
+						</hibernate-mapping>
+
+						

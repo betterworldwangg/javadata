@@ -1,0 +1,39 @@
+文件过滤器:
+		（原理:
+			在File类的list()方法中可以接收一个FilenameFilter参数,通过该参数可以只列出符合条件的文件,
+			FilenameFilter接口里包含了一个accept(File dir , String name)方法,该方法将依次对指定File的所有
+			子目录或文件进行迭代,如果该方法返回true,则list方法会列出该子目录或文件
+		）
+		
+		（实质:
+			这种用法是一个典型的Command设计模式,因为File的list()方法需要一个判断规则:
+			判断哪些文件应该被列出————这个判断规则需要一个代码块,但目前JDK版本不支持直接向方法传入代码块,也就是说:
+			传入FilenameFilter对象就是传入accept方法体
+		）
+
+		例:
+		import java.io.*;
+
+		public class FilenameFilterTest
+		{
+			public static void main(String[] args) 
+			{
+				File file = new File(".");
+				String[] nameList = file.list(new MyFilenameFilter());
+				for(String name : nameList)
+				{
+					System.out.println(name);
+				}
+			}
+		}
+		// 实现自己的FilenameFilter实现类
+		class MyFilenameFilter implements FilenameFilter
+		{
+			public boolean accept(File dir, String name)
+			{
+				// 如果文件名以.java结尾，或者文件对应一个路径，返回true
+				return name.endsWith(".java")
+					|| new File(name).isDirectory();
+			}
+		}
+

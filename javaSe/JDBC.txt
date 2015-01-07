@@ -1,0 +1,533 @@
+JDBC编程步骤:
+	Statement:
+		import java.sql.*;
+
+		public class ConnMySql
+		{
+			public static void main(String[] args) throws Exception
+			{
+				// 1.加载驱动，使用反射的知识，现在记住这么写。
+				Class.forName("com.mysql.jdbc.Driver");
+				try(
+					// 2.使用DriverManager获取数据库连接,
+					// 其中返回的Connection就代表了Java程序和数据库的连接
+					// 不同数据库的URL写法需要查驱动文档知道，用户名、密码由DBA分配
+					Connection conn = DriverManager.getConnection(
+						"jdbc:mysql://127.0.0.1:3306/select_test"
+						, "root" , "MYSQLADMIN");
+					// 3.使用Connection来创建一个Statment对象
+					Statement stmt = conn.createStatement();
+					// 4.执行SQL语句
+					/*
+					Statement有三种执行sql语句的方法：
+					1 execute 可执行任何SQL语句。- 返回一个boolean值，
+					  如果执行后第一个结果是ResultSet，则返回true，否则返回false
+					2 executeQuery 执行Select语句 － 返回查询到的结果集
+					3 executeUpdate 用于执行DML语句。－ 返回一个整数，
+					  代表被SQL语句影响的记录条数
+					*/
+					ResultSet rs = stmt.executeQuery("select s.* , teacher_name"
+						+ " from student_table s , teacher_table t"
+						+ " where t.teacher_id = s.java_teacher"))
+				{
+					// ResultSet有系列的getXxx(列索引 | 列名)，用于获取记录指针
+					// 指向行、特定列的值，不断地使用next()将记录指针下移一行，
+					// 如果移动之后记录指针依然指向有效行，则next()方法返回true。
+					while(rs.next())
+					{
+						System.out.println(rs.getInt(1) + "\t"
+							+ rs.getString(2) + "\t"
+							+ rs.getString(3) + "\t"
+							+ rs.getString(4));
+					}
+				}
+			}
+		}
+	
+	PreparedStatement:	(与statement相比速度快,可防止SQL注入,无需拼接SQL语句)
+			mysql.ini:
+				driver=com.mysql.jdbc.Driver
+				url=jdbc:mysql://127.0.0.1:3306/select_test
+				user=root
+				pass=MYSQLADMIN
+
+
+			import java.util.*;
+			import java.io.*;
+			import java.sql.*;
+			public class PreparedStatementTest
+			{
+				private String driver;
+				private String url;
+				private String user;
+				private String pass;
+				public void initParam(String paramFile)throws Exception
+				{
+					// 使用Properties类来加载属性文件
+					Properties props = new Properties();
+					props.load(new FileInputStream(paramFile));
+					driver = props.getProperty("driver");
+					url = props.getProperty("url");
+					user = props.getProperty("user");
+					pass = props.getProperty("pass");
+					// 加载驱动
+					Class.forName(driver);
+				}
+				
+				public void insertUsePrepare()throws Exception
+				{
+					
+					try(
+						// 获取数据库连接
+						Connection conn = DriverManager.getConnection(url
+							, user , pass);
+						// 使用Connection来创建一个PreparedStatement对象
+						PreparedStatement pstmt = conn.prepareStatement(
+							"insert into student_table values(null,?,1)"))
+
+					{
+						// 100次为PreparedStatement的参数设值，就可以插入100条记录
+						for (int i = 0; i < 100 ; i++ )
+						{
+							pstmt.setString(1 , "姓名" + i);
+							pstmt.executeUpdate();
+						}
+						
+					}
+				}
+				public static void main(String[] args) throws Exception
+				{
+					PreparedStatementTest pt = new PreparedStatementTest();
+					pt.initParam("mysql.ini");
+					pt.insertUsePrepare();
+				}
+			}
+	CallableStatement:
+			在mysql中先创建一个存储过程:
+			delimiter //
+			create procedure add_pro(a int , b int , out sum int)
+			begin
+			set sum = a+b;
+			end;
+			//
+		
+
+			mysql.ini:
+				driver=com.mysql.jdbc.Driver
+				url=jdbc:mysql://127.0.0.1:3306/select_test
+				user=root
+				pass=MYSQLADMIN
+
+
+
+			import java.awt.*;
+			import java.awt.event.*;
+			import javax.swing.*;
+			import java.util.*;
+			import java.io.*;
+			import java.sql.*;
+
+			public class CallableStatementTest
+			{
+				private String driver;
+				private String url;
+				private String user;
+				private String pass;
+				public void initParam(String paramFile)throws Exception
+				{
+					// 使用Properties类来加载属性文件
+					Properties props = new Properties();
+					props.load(new FileInputStream(paramFile));
+					driver = props.getProperty("driver");
+					url = props.getProperty("url");
+					user = props.getProperty("user");
+					pass = props.getProperty("pass");
+				}
+				public void callProcedure()throws Exception
+				{
+					// 加载驱动
+					Class.forName(driver);
+					try(
+						// 获取数据库连接
+						Connection conn = DriverManager.getConnection(url
+							, user , pass);
+						// 使用Connection来创建一个CallableStatment对象
+						CallableStatement cstmt = conn.prepareCall(
+							"{call add_pro(?,?,?)}"))
+					{
+						cstmt.setInt(1, 4);
+						cstmt.setInt(2, 5);
+						// 注册CallableStatement的第三个参数是int类型
+						cstmt.registerOutParameter(3, Types.INTEGER);
+						// 执行存储过程
+						cstmt.execute();
+						// 获取，并输出存储过程传出参数的值。
+						System.out.println("执行结果是: " + cstmt.getInt(3));
+					}
+				}
+				public static void main(String[] args) throws Exception
+				{
+					CallableStatementTest ct = new CallableStatementTest();
+					ct.initParam("mysql.ini");
+					ct.callProcedure();
+				}
+			}
+
+	RowSetFactory:
+
+			mysql.ini:
+				driver=com.mysql.jdbc.Driver
+				url=jdbc:mysql://127.0.0.1:3306/select_test
+				user=root
+				pass=MYSQLADMIN
+
+
+			
+			import java.util.*;
+			import java.io.*;
+			import java.sql.*;
+			import javax.sql.rowset.*;
+
+			public class RowSetFactoryTest
+			{
+				private String driver;
+				private String url;
+				private String user;
+				private String pass;
+				public void initParam(String paramFile)throws Exception
+				{
+					// 使用Properties类来加载属性文件
+					Properties props = new Properties();
+					props.load(new FileInputStream(paramFile));
+					driver = props.getProperty("driver");
+					url = props.getProperty("url");
+					user = props.getProperty("user");
+					pass = props.getProperty("pass");
+				}
+
+				public void update(String sql)throws Exception
+				{
+					// 加载驱动
+					Class.forName(driver);
+					// 使用RowSetProvider创建RowSetFactory
+					RowSetFactory factory = RowSetProvider.newFactory();
+					try(
+						// 创建默认的JdbcRowSet实例
+						JdbcRowSet jdbcRs = factory.createJdbcRowSet())
+					{
+						// 设置必要的连接信息
+						jdbcRs.setUrl(url);
+						jdbcRs.setUsername(user);
+						jdbcRs.setPassword(pass);
+						// 设置SQL查询语句
+						jdbcRs.setCommand(sql);
+						// 执行查询
+						jdbcRs.execute();
+						jdbcRs.afterLast();
+						// 向前滚动结果集
+						while (jdbcRs.previous())
+						{
+							System.out.println(jdbcRs.getString(1)
+								+ "\t" + jdbcRs.getString(2)
+								+ "\t" + jdbcRs.getString(3));
+							if (jdbcRs.getInt("student_id") == 3)
+							{
+								// 修改指定记录行
+								jdbcRs.updateString("student_name", "孙悟空");
+								jdbcRs.updateRow();
+							}
+						}
+					}
+				}
+				public static void main(String[] args)throws Exception
+				{
+					RowSetFactoryTest jt = new RowSetFactoryTest();
+					jt.initParam("mysql.ini");
+					jt.update("select * from student_table");
+				}
+			}
+
+	离线RowSet:	(直接将底层数据读入内存中,封装成RowSet对象,RowSet对象完全可以当场JavaBean来使用)
+
+
+			mysql.ini:
+				driver=com.mysql.jdbc.Driver
+				url=jdbc:mysql://127.0.0.1:3306/select_test
+				user=root
+				pass=MYSQLADMIN
+
+			
+			import java.util.*;
+			import java.io.*;
+			import java.sql.*;
+			import javax.sql.*;
+			import javax.sql.rowset.*;
+			
+			public class CachedRowSetTest
+			{
+				private static String driver;
+				private static String url;
+				private static String user;
+				private static String pass;
+				public void initParam(String paramFile)throws Exception
+				{
+					// 使用Properties类来加载属性文件
+					Properties props = new Properties();
+					props.load(new FileInputStream(paramFile));
+					driver = props.getProperty("driver");
+					url = props.getProperty("url");
+					user = props.getProperty("user");
+					pass = props.getProperty("pass");
+				}
+
+				public CachedRowSet query(String sql)throws Exception
+				{
+					// 加载驱动
+					Class.forName(driver);
+					// 获取数据库连接
+					Connection conn = DriverManager.getConnection(url
+						, user , pass);
+					Statement stmt = conn.createStatement();
+					ResultSet rs = stmt.executeQuery(sql);
+					// 使用RowSetProvider创建RowSetFactory
+					RowSetFactory factory = RowSetProvider.newFactory();
+					// 创建默认的CachedRowSet实例
+					CachedRowSet cachedRs = factory.createCachedRowSet();
+					// 使用ResultSet装填RowSet
+					cachedRs.populate(rs);    //①
+					// 关闭资源
+					rs.close();
+					stmt.close();
+					conn.close();
+					return cachedRs;
+				}
+				public static void main(String[] args)throws Exception
+				{
+					CachedRowSetTest ct = new CachedRowSetTest();
+					ct.initParam("mysql.ini");
+					CachedRowSet rs = ct.query("select * from student_table");
+					rs.afterLast();
+					// 向前滚动结果集
+					while (rs.previous())
+					{
+						System.out.println(rs.getString(1)
+							+ "\t" + rs.getString(2)
+							+ "\t" + rs.getString(3));
+						if (rs.getInt("student_id") == 3)
+						{
+							// 修改指定记录行
+							rs.updateString("student_name", "孙悟空");
+							rs.updateRow();
+						}
+					}
+					// 重新获取数据库连接
+					Connection conn = DriverManager.getConnection(url
+						, user , pass);
+					conn.setAutoCommit(false);
+					// 把对RowSet所做的修改同步到底层数据库
+					rs.acceptChanges(conn);
+				}
+			}
+						
+	离线RowSet查询分页:		(避免RowSet占用内存过大)
+		
+				mysql.ini:
+					driver=com.mysql.jdbc.Driver
+					url=jdbc:mysql://127.0.0.1:3306/select_test
+					user=root
+					pass=MYSQLADMIN
+				
+
+				import java.util.*;
+				import java.io.*;
+				import java.sql.*;
+				import javax.sql.*;
+				import javax.sql.rowset.*;
+				
+				public class CachedRowSetPage
+				{
+					private String driver;
+					private String url;
+					private String user;
+					private String pass;
+					public void initParam(String paramFile)throws Exception
+					{
+						// 使用Properties类来加载属性文件
+						Properties props = new Properties();
+						props.load(new FileInputStream(paramFile));
+						driver = props.getProperty("driver");
+						url = props.getProperty("url");
+						user = props.getProperty("user");
+						pass = props.getProperty("pass");
+					}
+
+					public CachedRowSet query(String sql , int pageSize 
+						, int page)throws Exception
+					{
+						// 加载驱动
+						Class.forName(driver);
+						try(
+							// 获取数据库连接
+							Connection conn = DriverManager.getConnection(url
+								, user , pass);
+							Statement stmt = conn.createStatement();
+							ResultSet rs = stmt.executeQuery(sql))
+						{
+							// 使用RowSetProvider创建RowSetFactory
+							RowSetFactory factory = RowSetProvider.newFactory();
+							// 创建默认的CachedRowSet实例
+							CachedRowSet cachedRs = factory.createCachedRowSet();
+							// 设置每页显示pageSize条记录
+							cachedRs.setPageSize(pageSize);
+							// 使用ResultSet装填RowSet，设置从第几条记录开始
+							cachedRs.populate(rs , (page - 1) * pageSize + 1);
+							return cachedRs;
+						}
+					}
+					public static void main(String[] args)throws Exception
+					{
+						CachedRowSetPage cp = new CachedRowSetPage();
+						cp.initParam("mysql.ini");
+						CachedRowSet rs = cp.query("select * from student_table" , 3 , 2);   //①
+						// 向后滚动结果集
+						while (rs.next())
+						{
+							System.out.println(rs.getString(1)
+								+ "\t" + rs.getString(2)
+								+ "\t" + rs.getString(3));
+						}
+					}
+				}
+
+
+	JDBC事物支持:
+			mysql.ini:
+					driver=com.mysql.jdbc.Driver
+					url=jdbc:mysql://127.0.0.1:3306/select_test
+					user=root
+					pass=MYSQLADMIN
+			
+			
+			import java.sql.*;
+			import java.io.*;
+			import java.util.*;
+			
+			public class TransactionTest
+			{
+				private String driver;
+				private String url;
+				private String user;
+				private String pass;
+				public void initParam(String paramFile)throws Exception
+				{
+					// 使用Properties类来加载属性文件
+					Properties props = new Properties();
+					props.load(new FileInputStream(paramFile));
+					driver = props.getProperty("driver");
+					url = props.getProperty("url");
+					user = props.getProperty("user");
+					pass = props.getProperty("pass");
+				}
+				public void insertInTransaction(String[] sqls) throws Exception
+				{
+					// 加载驱动
+					Class.forName(driver);
+					try(
+						Connection conn = DriverManager.getConnection(url
+							, user , pass))
+					{
+						// 关闭自动提交，开启事务
+						conn.setAutoCommit(false);
+						try(
+							// 使用Connection来创建一个Statment对象
+							Statement stmt = conn.createStatement())
+						{
+							// 循环多次执行SQL语句
+							for (String sql : sqls)
+							{
+								stmt.executeUpdate(sql);
+							}
+						}
+						// 提交事务
+						conn.commit();
+					}
+				}
+				public static void main(String[] args) throws Exception
+				{
+					TransactionTest tt = new TransactionTest();
+					tt.initParam("mysql.ini");
+					String[] sqls = new String[]{
+						"insert into student_table values(null , 'aaa' ,1)",
+						"insert into student_table values(null , 'bbb' ,1)",
+						"insert into student_table values(null , 'ccc' ,1)",
+						// 下面这条SQL语句将会违反外键约束，
+						// 因为teacher_table中没有ID为5的记录。
+						"insert into student_table values(null , 'ccc' ,5)" //①
+					};
+					tt.insertInTransaction(sqls);
+				}
+			}
+
+		
+	JDBC的批量更新:
+			
+			//保存当前的自动提交模式
+			boolean autoCommit = conn.getAutoCommit();
+			//关闭自动提交
+			conn.setAutoCommit(false);
+
+			Statement stmt = conn.createStatement();
+			//使用Statement同时收集多条SQL语句
+			stmt.addBatch(sql1);
+			stmt.addBatch(sql2);
+			stmt.addBatch(sql3);
+			stmt.addBatch(sql4);
+			...
+
+			//同时提交所有的SQL语句
+			stmt.executeBatch();
+			//提交
+			conn.commit();
+			//恢复原有的自动提交模式
+			conn.setAutocommit(autoCommit);
+
+
+	
+	数据源:
+		DBCP:	(将数据源jar文件加入类加载路径中)
+			
+			BasicDataSource ds = new BasicDataSource();
+			ds.setDriverClassName("com.mysql.jdbc.Driver");
+			ds.setUrl("jdbc:mysql://localhost:3306/javaee");
+			ds.setUsername("root");
+			ds.setPassword("pass");
+			//设置数据池的初始连接数
+			ds.setInitialSize(5);
+			//设置数据池最多可有多少活动连接数
+			ds.setMaxActive(20);
+			//设置连接池中最少有多少空闲的连接
+			ds.setMinIdle(2);
+
+		
+			Connection conn = ds.getConnection();
+			conn.close();	( 并没有关闭数据库物理连接,它仅仅把数据库连接释放,归还给连接池)
+
+
+		C3P0:	(将数据源jar文件加入类加载路径中)
+			
+			ComboPooledDataSource ds = new ComboPooledDataSource();
+			ds.setDriverClass("com.mysql.jdbc.Driver");
+			ds.setJdbcUrl("jdbc:mysql://localhost:3306/javaee");
+			ds.setPassword("pass");
+			//设置连接池的最大连接数
+			ds.setMaxPoolSize(40);
+			//设置连接池的最小连接数
+			ds.setMinPoolSize(2);
+			//设置连接池的初始连接数
+			ds.setInitialPoolSize(10);
+			//设置连接池的缓存Statement的最大数
+			ds.setMaxStatements(180);
+			
+			
+			Connection conn = ds.getConnection();
+			conn.close();	( 并没有关闭数据库物理连接,它仅仅把数据库连接释放,归还给连接池)

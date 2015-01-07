@@ -1,0 +1,421 @@
+
+
+/************************************************************************************
+InputStream:
+		import java.io.*;
+
+		public class FileInputStreamTest
+		{
+			public static void main(String[] args) throws IOException
+			{
+				// 创建字节输入流
+				try(FileInputStream fis = new FileInputStream(
+					"FileInputStreamTest.java"))
+				{
+					// 创建一个长度为1024的“竹筒”
+					byte[] bbuf = new byte[1024];
+					// 用于保存实际读取的字节数
+					int hasRead = 0;
+					// 使用循环来重复“取水”过程
+					while ((hasRead = fis.read(bbuf)) > 0 )
+					{
+						// 取出“竹筒”中水滴（字节），将字节数组转换成字符串输入！
+						System.out.print(new String(bbuf , 0 , hasRead ));
+					}
+					// 关闭文件输入流，放在finally块里更安全
+				}
+				catch(IOException ex)
+				{
+					ex.printStackTrace();
+				}
+			}
+		}
+
+
+Reader:
+
+		import java.io.*;
+
+		public class FileReaderTest
+		{
+			public static void main(String[] args)
+			{
+				try(
+					// 创建字符输入流
+					FileReader fr = new FileReader("FileReaderTest.java"))
+				{
+					// 创建一个长度为32的“竹筒”
+					char[] cbuf = new char[32];
+					// 用于保存实际读取的字符数
+					int hasRead = 0;
+					// 使用循环来重复“取水”过程
+					while ((hasRead = fr.read(cbuf)) > 0 )
+					{
+						// 取出“竹筒”中水滴（字符），将字符数组转换成字符串输入！
+						System.out.print(new String(cbuf , 0 , hasRead));
+					}
+				}
+				catch (IOException ex)
+				{
+					ex.printStackTrace();
+				}
+			}
+		}
+
+
+OutputStream:
+		import java.io.*;
+
+		public class FileOutputStreamTest01
+		{
+			public static void main(String[] args)
+			{
+				try(
+					// 创建字节输入流
+					FileInputStream fis = new FileInputStream(
+						"FileOutputStreamTest01.java");
+					// 创建字节输出流
+					FileOutputStream fos = new FileOutputStream("newFile.txt"))
+				{
+					byte[] bbuf = new byte[32];
+					int hasRead = 0;
+					// 循环从输入流中取出数据
+					while ((hasRead = fis.read(bbuf)) > 0 )
+					{
+						// 每读取一次，即写入文件输出流，读了多少，就写多少。
+						fos.write(bbuf , 0 , hasRead);
+					}
+				}
+				catch (IOException ioe)
+				{
+					ioe.printStackTrace();
+				}
+			}
+		}
+
+Writer:
+
+		import java.io.*;
+
+		public class FileWriterTest
+		{
+			public static void main(String[] args)
+			{
+				try(
+					FileWriter fw = new FileWriter("poem.txt"))
+				{
+					fw.write("锦瑟 - 李商隐\r\n"); 
+					fw.write("锦瑟无端五十弦，一弦一柱思华年。\r\n");
+					fw.write("庄生晓梦迷蝴蝶，望帝春心托杜鹃。\r\n");
+					fw.write("沧海月明珠有泪，蓝田日暖玉生烟。\r\n");
+					fw.write("此情可待成追忆，只是当时已惘然。\r\n");
+				}
+				catch (IOException ioe)
+				{
+					ioe.printStackTrace();
+				}	
+			}
+		}
+
+************************************************************************************/
+处理流:
+	PrintStream:
+
+
+
+			import java.io.*;
+
+			public class PrintStreamTest
+			{
+				public static void main(String[] args)
+				{
+					try(
+						FileOutputStream fos = new FileOutputStream("test.txt");
+						PrintStream ps = new PrintStream(fos))
+					{
+						// 使用PrintStream执行输出
+						ps.println("普通字符串");
+						// 直接使用PrintStream输出对象
+						ps.println(new PrintStreamTest());
+					}
+					catch (IOException ioe)
+					{
+						ioe.printStackTrace();
+					}
+				}
+			}
+
+************************************************************************************/
+
+
+转换流:
+	InputStreamReader:	(字节输入流————>字符输入流)
+	OutputStreamWriter:	(字节输出流————>字符输出流)
+
+
+				import java.io.*;
+				public class KeyinTest
+				{
+					public static void main(String[] args) 
+					{
+						try(
+							// 将Sytem.in对象转换成Reader对象
+							InputStreamReader reader = new InputStreamReader(System.in);
+							//将普通Reader包装成BufferedReader
+							BufferedReader br = new BufferedReader(reader))
+						{
+							String buffer = null;
+							//采用循环方式来一行一行的读取
+							while ((buffer = br.readLine()) != null)
+							{
+								//如果读取的字符串为"exit"，程序退出
+								if (buffer.equals("exit"))
+								{
+									System.exit(1);
+								}
+								//打印读取的内容
+								System.out.println("输入内容为:" + buffer);
+							}
+						}
+						catch (IOException ioe)
+						{
+							ioe.printStackTrace();
+						}
+					}
+				}
+
+
+
+************************************************************************************/
+
+推回输入流:
+		PushbackInputStream:
+		PushbackReader:
+
+
+				import java.io.*;
+
+				public class PushbackTest
+				{
+					public static void main(String[] args) 
+					{
+						try(
+							// 创建一个PushbackReader对象，指定推回缓冲区的长度为64
+							PushbackReader pr = new PushbackReader(new FileReader(
+								"PushbackTest.java") , 64))
+						{
+							char[] buf = new char[32];
+							// 用以保存上次读取的字符串内容
+							String lastContent = "";
+							int hasRead = 0;
+							// 循环读取文件内容
+							while ((hasRead = pr.read(buf)) > 0)
+							{
+								// 将读取的内容转换成字符串
+								String content = new String(buf , 0 , hasRead);
+								int targetIndex = 0;
+								// 将上次读取的字符串和本次读取的字符串拼起来，
+								// 查看是否包含目标字符串, 如果包含目标字符串
+								if ((targetIndex = (lastContent + content)
+									.indexOf("new PushbackReader")) > 0)
+								{
+									// 将本次内容和上次内容一起推回缓冲区
+									pr.unread((lastContent + content).toCharArray());
+									// 指定读取前面len个字符
+									int len = targetIndex > 32 ? 32 : targetIndex;
+									// 再次读取指定长度的内容（就是目标字符串之前的内容）
+									pr.read(buf , 0 , len);
+									// 打印读取的内容
+									System.out.print(new String(buf , 0 ,len));
+									System.exit(0);
+								}
+								else
+								{
+									// 打印上次读取的内容
+									System.out.print(lastContent);
+									// 将本次内容设为上次读取的内容
+									lastContent = content;
+								}
+							}
+						}
+						catch (IOException ioe)
+						{
+							ioe.printStackTrace();
+						}
+					}
+				}
+
+************************************************************************************/
+
+重定向输入/输出:
+		setErr(PrintStream err):
+		setIn(InputStream in):
+		setOut(PrintStream out):
+
+
+
+		setOut:
+			import java.io.*;
+
+			public class RedirectOut
+			{
+				public static void main(String[] args) 
+				{
+					try(
+						// 一次性创建PrintStream输出流
+						PrintStream ps = new PrintStream(new FileOutputStream("out.txt")))
+					{
+						// 将标准输出重定向到ps输出流
+						System.setOut(ps);
+						// 向标准输出输出一个字符串
+						System.out.println("普通字符串");
+						// 向标准输出输出一个对象
+						System.out.println(new RedirectOut());
+					}
+					catch (IOException ex)
+					{
+						ex.printStackTrace();
+					}
+				}
+			}
+
+		setIn:
+			import java.util.*;
+			import java.io.*;
+
+			public class RedirectIn
+			{
+				public static void main(String[] args) 
+				{
+					try(
+						FileInputStream fis = new FileInputStream("RedirectIn.java"))
+					{
+						// 将标准输入重定向到fis输入流
+						System.setIn(fis);
+						// 使用System.in创建Scanner对象，用于获取标准输入
+						Scanner sc = new Scanner(System.in);
+						// 增加下面一行将只把回车作为分隔符
+						sc.useDelimiter("\n");
+						// 判断是否还有下一个输入项
+						while(sc.hasNext())
+						{
+							// 输出输入项
+							System.out.println("键盘输入的内容是：" + sc.next());
+						}
+					}
+					catch (IOException ex)
+					{
+						ex.printStackTrace();
+					}
+				}
+			}
+
+
+************************************************************************************/
+
+RandomAccessFile:
+		访问指定中间部分数据:
+					import java.io.*;
+
+					public class RandomAccessFileTest
+					{
+						public static void main(String[] args) 
+						{
+							try(
+								RandomAccessFile raf =  new RandomAccessFile(
+									"RandomAccessFileTest.java" , "r"))
+							{
+								// 获取RandomAccessFile对象文件指针的位置，初始位置是0
+								System.out.println("RandomAccessFile的文件指针的初始位置：" 
+									+ raf.getFilePointer());
+								// 移动raf的文件记录指针的位置
+								raf.seek(300);
+								byte[] bbuf = new byte[1024];
+								// 用于保存实际读取的字节数
+								int hasRead = 0;
+								// 使用循环来重复“取水”过程
+								while ((hasRead = raf.read(bbuf)) > 0 )
+								{
+									// 取出“竹筒”中水滴（字节），将字节数组转换成字符串输入！
+									System.out.print(new String(bbuf , 0 , hasRead ));
+								}
+							}
+							catch (IOException ex)
+							{
+								ex.printStackTrace();
+							}
+						}
+					}
+
+		向指定文件追加内容:
+					import java.io.*;
+
+					public class AppendContent
+					{
+						public static void main(String[] args) 
+						{
+							try(
+								//以读、写方式打开一个RandomAccessFile对象
+								RandomAccessFile raf = new RandomAccessFile("out.txt" , "rw"))
+							{
+								//将记录指针移动到out.txt文件的最后
+								raf.seek(raf.length());
+								raf.write("追加的内容！\r\n".getBytes());
+							}
+							catch (IOException ex)
+							{
+								ex.printStackTrace();
+							}
+						}
+					}
+
+
+		向指定文件指定位置插入内容:
+					import java.io.*;
+
+					public class InsertContent
+					{
+						public static void insert(String fileName , long pos
+							, String insertContent) throws IOException
+						{
+							File tmp = File.createTempFile("tmp" , null);
+							tmp.deleteOnExit();
+							try(
+								RandomAccessFile raf = new RandomAccessFile(fileName , "rw");
+								// 创建一个临时文件来保存插入点后的数据
+								FileOutputStream tmpOut = new FileOutputStream(tmp);
+								FileInputStream tmpIn = new FileInputStream(tmp))
+							{
+								raf.seek(pos);
+								// ------下面代码将插入点后的内容读入临时文件中保存------
+								byte[] bbuf = new byte[64];
+								// 用于保存实际读取的字节数
+								int hasRead = 0;
+								// 使用循环方式读取插入点后的数据
+								while ((hasRead = raf.read(bbuf)) > 0 )
+								{
+									// 将读取的数据写入临时文件
+									tmpOut.write(bbuf , 0 , hasRead);
+								}
+								// ----------下面代码插入内容----------
+								// 把文件记录指针重新定位到pos位置
+								raf.seek(pos);
+								// 追加需要插入的内容
+								raf.write(insertContent.getBytes());
+								// 追加临时文件中的内容
+								while ((hasRead = tmpIn.read(bbuf)) > 0 )
+								{
+									raf.write(bbuf , 0 , hasRead);
+								}
+							}
+						}
+						public static void main(String[] args) 
+							throws IOException
+						{
+							insert("InsertContent.java" , 45 , "插入的内容\r\n");
+						}
+					}
+
+
+
+
