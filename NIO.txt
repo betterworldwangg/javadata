@@ -1,0 +1,338 @@
+NIO和传统IO有相同的目的,都是用于输入输出,NIO采用内存映射文件的方式来处理输入输出,NIO将文件或文件的一段区域映射到内存中,采用这种方式
+来进行输入输出比传统的输入输出要快的多。
+Channel和Buffer是NIO中的核心对象。
+
+/************************************************************************************************************
+
+Channel:	(与传统的InputStream、OutputStream最大的区别在于它提供了一个map()方法,通过该map方法可以直接将一块数据映射到内存中。
+		 所有的Channel都不应该通过构造器来直接创建,而是通过传统的节点InputStream、OutputStream的getChannel（）方法来返回对应的Channel)
+
+			import java.io.*;
+			import java.nio.*;
+			import java.nio.channels.*;
+			import java.nio.charset.*;
+			
+			public class FileChannelTest
+			{
+				public static void main(String[] args)
+				{
+					File f = new File("FileChannelTest.java");
+					try(
+						// 创建FileInputStream，以该文件输入流创建FileChannel
+						FileChannel inChannel = new FileInputStream(f).getChannel();
+						// 以文件输出流创建FileBuffer，用以控制输出
+						FileChannel outChannel = new FileOutputStream("a.txt")
+							.getChannel())
+					{
+						// 将FileChannel里的全部数据映射成ByteBuffer
+						MappedByteBuffer buffer = inChannel.map(FileChannel
+							.MapMode.READ_ONLY , 0 , f.length());   // ①
+						// 使用GBK的字符集来创建解码器
+						Charset charset = Charset.forName("GBK");
+						// 直接将buffer里的数据全部输出
+						outChannel.write(buffer);     // ②
+						// 再次调用buffer的clear()方法，复原limit、position的位置
+						buffer.clear();
+						// 创建解码器(CharsetDecoder)对象
+						CharsetDecoder decoder = charset.newDecoder();
+						// 使用解码器将ByteBuffer转换成CharBuffer
+						CharBuffer charBuffer =  decoder.decode(buffer);
+						// CharBuffer的toString方法可以获取对应的字符串
+						System.out.println(charBuffer);
+					}
+					catch (IOException ex)
+					{
+						ex.printStackTrace();
+					}
+				}
+			}
+
+		追加:
+
+			import java.io.*;
+			import java.nio.*;
+			import java.nio.channels.*;
+			
+			public class RandomFileChannelTest
+			{
+				public static void main(String[] args)
+					throws IOException
+				{
+					File f = new File("a.txt");
+					try(
+						// 创建一个RandomAccessFile对象
+						RandomAccessFile raf = new RandomAccessFile(f, "rw");
+						// 获取RandomAccessFile对应的Channel
+						FileChannel randomChannel = raf.getChannel())
+					{
+						// 将Channel中所有数据映射成ByteBuffer
+						ByteBuffer buffer = randomChannel.map(FileChannel
+							.MapMode.READ_ONLY, 0 , f.length());
+						// 把Channel的记录指针移动到最后
+						randomChannel.position(f.length());
+						// 将buffer中所有数据输出
+						randomChannel.write(buffer);
+					}
+				}
+			}
+
+		重复取:
+			
+				import java.io.*;
+				import java.nio.*;
+				import java.nio.channels.*;
+				import java.nio.charset.*;
+				
+				public class ReadFile
+				{
+					public static void main(String[] args)
+						throws IOException
+					{
+						try(
+							// 创建文件输入流
+							FileInputStream fis = new FileInputStream("ReadFile.java");
+							// 创建一个FileChannel
+							FileChannel fcin = fis.getChannel())
+						{
+							// 定义一个ByteBuffer对象，用于重复取水
+							ByteBuffer bbuff = ByteBuffer.allocate(64);
+							// 将FileChannel中数据放入ByteBuffer中
+							while( fcin.read(bbuff) != -1 )
+							{
+								// 锁定Buffer的空白区
+								bbuff.flip();
+								// 创建Charset对象
+								Charset charset = Charset.forName("GBK");
+								// 创建解码器(CharsetDecoder)对象
+								CharsetDecoder decoder = charset.newDecoder();
+								// 将ByteBuffer的内容转码
+								CharBuffer cbuff = decoder.decode(bbuff);
+								System.out.print(cbuff);
+								// 将Buffer初始化，为下一次读取数据做准备
+								bbuff.clear();
+							}
+						}
+					}
+				}
+
+Buffer:		(发送到Channel的对象必须首先放到Buffer中,而从Channel中读取数据也必须先放到Buffer中)
+
+
+************************************************************************************************************/
+
+文件锁:
+	import java.io.*;
+	import java.nio.*;
+	import java.nio.channels.*;
+
+	public class FileLockTest
+	{
+		public static void main(String[] args) 
+			throws Exception
+		{
+			
+			try(
+				// 使用FileOutputStream获取FileChannel
+				FileChannel channel = new FileOutputStream("a.txt")
+					.getChannel())
+			{
+				// 使用非阻塞式方式对指定文件加锁
+				FileLock lock = channel.tryLock();
+				// 程序暂停10s
+				Thread.sleep(10000);
+				// 释放锁
+				lock.release();
+			}
+		}
+	}
+************************************************************************************************************/
+
+Path:
+Paths:
+Files:
+	import java.nio.file.*;
+	import java.nio.charset.*;
+	import java.io.*;
+	import java.util.*;
+
+	public class FilesTest
+	{
+		public static void main(String[] args) 
+			throws Exception
+		{
+			// 复制文件
+			Files.copy(Paths.get("FilesTest.java") 
+				, new FileOutputStream("a.txt"));
+			// 判断FilesTest.java文件是否为隐藏文件
+			System.out.println("FilesTest.java是否为隐藏文件："
+				+ Files.isHidden(Paths.get("FilesTest.java")));
+			// 一次性读取FilesTest.java文件的所有行
+			List<String> lines = Files.readAllLines(Paths
+				.get("FilesTest.java"), Charset.forName("gbk"));
+			System.out.println(lines);
+			// 判断指定文件的大小
+			System.out.println("FilesTest.java的大小为："
+				+ Files.size(Paths.get("FilesTest.java")));
+			List<String> poem = new ArrayList<>();
+			poem.add("水晶潭底银鱼跃");
+			poem.add("清徐风中碧竿横");
+			// 直接将多个字符串内容写入指定文件中
+			Files.write(Paths.get("pome.txt") , poem 
+				, Charset.forName("gbk"));
+			FileStore cStore = Files.getFileStore(Paths.get("C:"));
+			// 判断C盘的总空间，可用空间
+			System.out.println("C:共有空间：" + cStore.getTotalSpace());
+			System.out.println("C:可用空间：" + cStore.getUsableSpace());
+		}
+	}
+
+************************************************************************************************************/
+FileVisitor: (遍历文件和目录)
+		import java.io.*;
+		import java.nio.file.*;
+		import java.nio.file.attribute.*;
+
+		public class FileVisitorTest
+		{
+			public static void main(String[] args)
+				throws Exception
+			{
+				// 遍历g:\publish\codes\15目录下的所有文件和子目录
+				Files.walkFileTree(Paths.get("g:", "publish" , "codes" , "15")
+					, new SimpleFileVisitor<Path>()
+				{
+					// 访问文件时候触发该方法
+					@Override
+					public FileVisitResult visitFile(Path file 
+						, BasicFileAttributes attrs) throws IOException
+					{
+						System.out.println("正在访问" + file + "文件");
+						// 找到了FileInputStreamTest.java文件
+						if (file.endsWith("FileInputStreamTest.java"))
+						{
+							System.out.println("--已经找到目标文件--");
+							return FileVisitResult.TERMINATE;
+						}
+						return FileVisitResult.CONTINUE;
+					}
+					// 开始访问目录时触发该方法
+					@Override
+					public FileVisitResult preVisitDirectory(Path dir
+						, BasicFileAttributes attrs) throws IOException
+					{
+						System.out.println("正在访问：" + dir + " 路径");
+						return FileVisitResult.CONTINUE;
+					}
+				});
+			}
+		}
+
+************************************************************************************************************/
+
+WatchService监控文件变化:
+				(需要一直监控,使用take(),只需要监控指定时间,使用poll())
+
+				import java.io.*;
+				import java.nio.file.*;
+				import java.nio.file.attribute.*;
+
+				public class WatchServiceTest
+				{
+					public static void main(String[] args) 
+						throws Exception
+					{
+						// 获取文件系统的WatchService对象
+						WatchService watchService = FileSystems.getDefault()
+							.newWatchService();
+						// 为C:盘根路径注册监听
+						Paths.get("C:/").register(watchService 
+							, StandardWatchEventKinds.ENTRY_CREATE
+							, StandardWatchEventKinds.ENTRY_MODIFY
+							, StandardWatchEventKinds.ENTRY_DELETE);
+						while(true)
+						{
+							// 获取下一个文件改动事件
+							WatchKey key = watchService.take();    //①
+							for (WatchEvent<?> event : key.pollEvents()) 
+							{
+								System.out.println(event.context() +" 文件发生了 "
+									+ event.kind()+ "事件！");
+							}
+							// 重设WatchKey
+							boolean valid = key.reset();
+							// 如果重设失败，退出监听
+							if (!valid) 
+							{
+								break;
+							}
+						}
+					}
+				}
+
+
+************************************************************************************************************/
+
+访问文件属性:
+		
+		import java.io.*;
+		import java.util.*;
+		import java.nio.file.*;
+		import java.nio.*;
+		import java.nio.charset.*;
+		import java.nio.file.attribute.*;
+
+		public class AttributeViewTest
+		{
+			public static void main(String[] args)
+				throws Exception
+			{
+				// 获取将要操作的文件
+				Path testPath = Paths.get("AttributeViewTest.java");
+				// 获取访问基本属性的BasicFileAttributeView
+				BasicFileAttributeView basicView = Files.getFileAttributeView(
+					testPath , BasicFileAttributeView.class);
+				// 获取访问基本属性的BasicFileAttributes
+				BasicFileAttributes basicAttribs = basicView.readAttributes();
+				// 访问文件的基本属性
+				System.out.println("创建时间：" + new Date(basicAttribs
+					.creationTime().toMillis()));
+				System.out.println("最后访问时间：" + new Date(basicAttribs
+					.lastAccessTime().toMillis()));
+				System.out.println("最后修改时间：" + new Date(basicAttribs
+					.lastModifiedTime().toMillis()));
+				System.out.println("文件大小：" + basicAttribs.size());
+				// 获取访问文件属主信息的FileOwnerAttributeView
+				FileOwnerAttributeView ownerView = Files.getFileAttributeView(
+					testPath, FileOwnerAttributeView.class);
+				// 获取该文件所属的用户
+				System.out.println(ownerView.getOwner());
+				// 获取系统中guest对应的用户
+				UserPrincipal user = FileSystems.getDefault()
+					.getUserPrincipalLookupService()
+					.lookupPrincipalByName("guest");
+				// 修改用户
+				ownerView.setOwner(user);
+				// 获取访问自定义属性的FileOwnerAttributeView
+				UserDefinedFileAttributeView userView = Files.getFileAttributeView(
+					testPath, UserDefinedFileAttributeView.class);
+				List<String> attrNames = userView.list();
+				// 遍历所有的自定义属性
+				for (String name : attrNames)
+				{
+					ByteBuffer buf = ByteBuffer.allocate(userView.size(name));
+					userView.read(name, buf);
+					buf.flip();
+					String value = Charset.defaultCharset().decode(buf).toString();
+					System.out.println(name + "--->" + value) ;
+				}
+				// 添加一个自定义属性
+				userView.write("发行者", Charset.defaultCharset()
+					.encode("疯狂Java联盟"));
+				// 获取访问DOS属性的DosFileAttributeView
+				DosFileAttributeView dosView = Files.getFileAttributeView(testPath
+					, DosFileAttributeView.class);
+				// 将文件设置隐藏、只读
+				dosView.setHidden(true);
+				dosView.setReadOnly(true);
+			}
+		}
