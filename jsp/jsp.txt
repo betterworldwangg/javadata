@@ -1,0 +1,441 @@
+（如果需要使用JSP2语法,其web.xml必须使用Servlet2.4以上版本的配置文件)
+
+JSP基本原理:
+	JSP页面由系统编译成Servlet,Servlet在负责响应用户请求（对于Tomcat,JSP页面生成的Servlet放在work路径对应的Web应用下）
+	该Servlet主要包含如下三个方法（去除方法名中的_jsp前缀,再将首字母小写）:
+		>init():(初始化JSP/Servlet的方法)
+		>destroy():(销毁JSP/Servlet之前的方法)
+		>service():(对用户请求生成响应的方法)
+
+	JSP特性:
+		>JSP文件必须在JSP服务器内运行
+		>JSP文件必须生成Servlet才能执行
+		>没个JSP页面的第一个访问者速度很慢,因为必须等待JSP编译成Servlet
+		>JSP的访问者无需安装任何客户端,也不需要可以运行java的环境,因为输送到客户端的是标准HTML页面
+
+
+*********************************************************************/
+
+<%--注释内容-->: (JSP注释不会被发送到客户端)
+<%!声明部分%>:   (声明部分将转换成对应Servlet的成员变量或成员方法,所以JSP声明部分定义的变量和方法可以使用private、public等修饰,也可以
+			使用static修饰,但不能使用abstract修饰,因为抽象方法将导致JSP对于Servlet变成抽象类,从而导致无法实例化)
+<%=表达式%>:	   (输出表达式将转换成Servlet里的输出语句,输出表达式语法后不能有分号)
+<% %>:		(JSP脚本将转换成Servlet里service方法的可执行性代码,所以脚本中声明的变量是局部变量不可使用private、public、static等修饰,jsp脚本里不可以定义方法)
+
+*********************************************************************/
+
+3个编译指令:
+	page:
+		<%@page
+		[language="Java"]
+		[extends="package.class"]
+		[import="package.class|package.*,..."]
+		[session="true|false"]
+		[buffer="none|8KB|size Kb"]
+		[autoFlush="true|false"]
+		[isThreadSafe="true|false"]
+		[info="text"]					(getServletInfo()可输出该描述信息)
+		[errorPage="relativeURL"]			（指定了当本页面发生异常的异常处理页面）
+		[contentType="mimeType[;charset=characterSet]"|"text/html;charSet=ISO-8859-1"]
+		[pageEncoding="ISO-8859-1"]
+		[isErrorPage="true|false"]			（指定该页面是否为异常处理页面）
+		%>
+
+	include:
+		<%@include file="relativeURLSpec"%>		(静态include)
+								（被包含的页面将完全融入包含页面,编译指令也会被包含进去,如果两个编译指令冲突,将发生错误）
+	taglib:							（标签指令,用于导入标签库）
+
+		<%@taglib uri="标签库命名空间" prefix="标签前缀"%>
+		使用标签:
+			<标签前缀:标签名/>
+
+
+*********************************************************************/
+
+7个动作指令:
+	forward:	(将请求的处理转发到下一个页面,不会丢失客户端请求参数)
+		<jsp:forward page="relativeURL|<%=expression%>">
+			<jsp:param.../>				(增加的请求参数可通过HttpServletRequest的getParameter()方法获取)
+		</jsp:forward>
+
+	include:	(动态include,与forward很相似,forward代替原有页面,而include插入原有页面)
+		<jsp:include page="relativeURL|<%=expression%>" flush="true">	(flush属性指定输出缓存是否转入被导入文件中)
+			<jsp:param name="parameterName" value="parameterValue"/>
+		</jsp:include>
+		
+		静态include与动态include区别:
+			>静态导入是将被导入的代码融入形成一个servlet,动态导入则在servlet中使用include方法来引入被导入页面内容
+			>静态导入被导入编译指令会起作用,动态导入则被导入编译指令失去作用
+			>动态导入可以增加额外参数
+
+	useBean:
+		<jsp:useBean id="name" class="classname" scope="page|request|session|application"/>(scope属性指定该指令有效范围)
+	setProperty:
+		<jsp:setProperty name="BeanName" property="propertyName" value="value"/>
+	getProperty:
+		<jsp:getProperty name="BeanName" property="propertyName"/>	
+
+		(当使用setProperty、getProperty底层调用getBean()、setBean())
+	plugin:
+		
+	param:	(与jsp:include、jsp:forward、jsp:plugin结合使用)
+		<jsp:param name="paramName" value="paramValue"/>
+
+*********************************************************************/
+
+9个内置对象:	(在servlet的service()方法来创建这些对象,只有在isErrorPage属性为true时,才会创建exception对象
+		所以只能在jsp脚本,jsp输出表达式中使用,不能在jsp声明中使用)
+	application:	(javax.servlet.ServletContext的实例,代表web应用本身)
+		>通过application的setAttribute（String attrName , Object value）方法将值设为application范围内的属性,该属性在整个web应用内有效
+			>>在jsp中访问:<%=application.getAttribute(attrName)%>
+			>>在Servlet中访问:ServletContext sc = getServletConfig().getServletContext();
+					   sc.getAttribute(attrName);
+		>获得web应用配置参数
+			web.xml配置:<context-param>
+					<param-name>driver</param-name>
+					<param-value>com.mysql.jdbc.Driver</param-value>
+				    </context-param>
+			
+			
+			获取配置参数:String driver = application.getInitParameter("driver");
+	
+	config:		(javax.servletConfig的实例,代表JSP的配置信息,更多在servlet中使用)
+		configTest2.jsp:
+			name配置参数的值:<%=config.getInitParameter("name")%><br/>
+			age配置参数的值:<%=config.getInitParameter("age")%>
+		web.xml:<servlet>				(必须通过jsp配置的路径访问,配置参数才会起作用)
+				<!-- 指定Servlet名字 -->
+				<servlet-name>config</servlet-name>
+				<!-- 指定将哪个JSP页面配置成Servlet -->
+				<jsp-file>/configTest2.jsp</jsp-file>
+				<!-- 配置名为name的参数，值为yeeku -->
+				<init-param>
+					<param-name>name</param-name>
+					<param-value>yeeku</param-value>
+				</init-param>
+				<!-- 配置名为age的参数，值为30 -->
+				<init-param>
+					<param-name>age</param-name>
+					<param-value>30</param-value>
+				</init-param>
+			</servlet>
+			<servlet-mapping>
+				<!-- 指定将config Servlet配置到/config URL-->
+				<servlet-name>config</servlet-name>
+				<url-pattern>/config</url-pattern>
+			</servlet-mapping>
+	
+	exception:	(javax.lang.Throwable的实例,只有是错误页面才可以使用,只有当isErrorPage为true时才可访问exception对象)
+			（jsp脚本无需处理任何异常,全交给错误处理页面,jsp声明依然需要处理异常）
+			异常类型:exception.getClass();
+			异常信息:exception.getMessage();
+	
+	out:		(javax.servlet.jsp.JspWriter的实例,代表jsp页面输出流
+			一般在使用输出表达式的地方都可以使用out对象来达到同样的效果)
+			out.println(...);(<%=...%>的本质就是out.write(...))
+	
+	page:		(代表页面本身,也就是servlet的this,能用page的地方就可用this)
+		
+	pageContext:	(javax.servlet.jsp.PageContext的实例,代表jsp页面上下文,可以访问页面中的共享数据)
+		>通过该对象可以访问page、request、session、application范围的变量:
+			>>getAttribute(String name)(取得page范围内的name属性)
+			>>getAttribute(String name , int scope)scope可以是:
+				PageContext.PAGE_SCOPE		对应于page范围
+				PageContext.REQUEST_SCOPE	request
+				PageContext.SESSION_SCOPE	session
+				PageContext.APPLICATION_SCOPE	application
+			>>还可以获取其他内置对象:(所以一旦获取了pageContext对象,就可以获取其他内置对象)
+				getRequest()
+				getResponse()
+				getServletConfig()
+				getServletContext()
+				getSession()	
+				
+	request:	(javax.servlet.http.HttpServletRequest的实例,该对象封装了一次请求,客户端的请求都被封装在该对象里)
+		>如果POST请求的请求参数包含了非西欧字符,则必须在获取请求参数之前先调用setCharacterEncoding（）方法设置字符集
+		>如果是GET方法请求包含了非西欧字符,则先获取参数,再使用URLDecoder解码,处理
+		>执行forward或include:(路径必须以斜线开头)
+			>>forward（ServletRequest request , ServletResponse response）
+			>>include(ServletRequest request , ServletResponse response)
+			getRequestDispatcher("/a.jsp").include(request, response):将a.jsp,include到本页面
+			getRequestDispatcher("/a.jsp").forward(request, response):将请求forward到a.jsp
+			
+	response:	(javax.servlet.http.HttpServletResponse的实例)
+		>生成非字符响应:
+			该接口提供了一个getOutputStream()方法,该方法返回响应输出字节流
+		>重定向:	(所有请求参数和request范围内的属性全部丢失)
+			response.sendRedirect("**.jsp");
+		>增加Cookie:
+			Cookie c = new Cookie("username" , "wang");
+			c.setMaxAge(24*3600);
+			response.addCookie(c);
+			>>如果设置的Cookie值包含非西欧字符则应先将中文字符使用URLEncoder编码,再设为Cookie值
+				取Cookie值时先读取Cookie再解码
+	session:	(javax.servlet.http.HttpSession的实例,代表一次会话,浏览器与服务器连接时会话开始,浏览器关闭时回话结束)
+		>session通常用于跟踪用户的回话信息,session范围的属性可以在多个页面的跳转之间共享,一旦浏览器关闭,级sesion结束,sesion范围内的属性全部丢失
+		>session机制通常用于保存客户端的状态信息,这些信息需要保存到Web服务器的硬盘上,所以session里的属性值必须是可序列化的,否则将引发异常
+		>session的属性值可以是任何可序列化的对象
+
+*********************************************************************/
+
+自定义标签:
+	开发自定义标签:
+		>开发自定义标签类	(1.应该继承javax.servlet.jsp.tagext.SimpleTagSupport
+					 2.如果标签包含属性,每个属性都有对应的getter和setter方法
+					 3.重写doTag（）方法,负责生成页面内容)
+				例:
+					public class HelloWorldTag extends SimpleTagSupport
+					{
+						//重写doTag方法，该方法在标签结束生成页面内容
+						public void doTag()throws JspException,
+							IOException
+						{
+							//获取页面输出流，并输出字符串
+							getJspContext().getOut().write("Hello World "
+								+ new java.util.Date());
+						}
+					}
+		>建立一个*.tld文件,每个tld文件对应一个标签库,每个标签库可包含多个标签	(在tomcat.webapps.examples.WEB-INF.jsp下有tld文件范例)
+				（该文件放在WEB-INF路径或其任意子路径下）
+				<?xml version="1.0" encoding="GBK"?>
+
+				<taglib xmlns="http://java.sun.com/xml/ns/j2ee"
+					xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+					xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee web-jsptaglibrary_2_0.xsd"
+					version="2.0">
+					<tlib-version>1.0</tlib-version>
+					<short-name>mytaglib</short-name>
+					<!-- 定义该标签库的URI -->
+					<uri>http://www.crazyit.org/mytaglib</uri>
+
+					<!-- 定义第一个标签 -->
+					<tag>
+						<!-- 定义标签名 -->
+						<name>helloWorld</name>
+						<!-- 定义标签处理类 -->
+						<tag-class>lee.HelloWorldTag</tag-class>
+						<!-- 定义标签体为空 -->
+						<body-content>empty</body-content>
+					</tag>
+				</taglib>
+		>使用标签库
+				<%@ page contentType="text/html; charset=GBK" language="java" errorPage="" %>
+				<!-- 导入标签库，指定mytag前缀的标签，
+					由http://www.crazyit.org/mytaglib的标签库处理 -->
+				<%@ taglib uri="http://www.crazyit.org/mytaglib" prefix="mytag"%>
+				<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+					"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+				<html xmlns="http://www.w3.org/1999/xhtml">
+				<head>
+					<title>自定义标签示范</title>
+					<meta name="website" content="http://www.crazyit.org" />
+				</head>
+				<body bgcolor="#ffffc0">
+				<h2>下面显示的是自定义标签中的内容</h2>
+				<!-- 使用标签 ，其中mytag是标签前缀，根据taglib的编译指令，
+					mytag前缀将由http://www.crazyit.org/mytaglib的标签库处理 -->
+				<mytag:helloWorld/><br/>
+				</body>
+				</html>
+
+	带属性:		(需要为<tag.../>元素增加<attribute../>,
+			 attribute元素还需要指定如下子元素:
+			>name:设置属性名
+			>required:该属性是否为必需属性
+			>fragment:该属性是否支持jsp脚本、表达式等动态内容)
+
+			例:
+				<attribute>
+					<name>item</name> 
+					<required>true</required>
+					<fragment>true</fragment>
+				</attribute>
+				
+	带标签体:	(配置标签时指定body-content为scriptless)
+		
+	以页面片段作为属性:
+			
+			与普通有两个简单的改变:
+				>标签处理类中定义类型为JspFragment的属性,该属性代表了"页面片段"
+				>使用标签库时,通过<jsp:attribute../>动作指令为标签库属性指定值
+			例:
+				<mytag:fragment>
+					<jsp:attribute name="fragment">
+						<!-- 下面是动态的JSP页面片段 -->
+						${pageContext.request.remoteAddr}
+					</jsp:attribute>
+				</mytag:fragment>
+
+	动态属性:	(比普通标签多了两个额外要求:
+			 >标签处理类还要实现DynamicAttributes接口
+			 >配置标签时通过<dynamic-attributes../>子元素指定该标签支持动态属性
+			 )
+			
+			
+			//保存每个属性名的集合
+			private ArrayList<String> keys = new ArrayList<String>();
+			//保存每个属性值的集合
+			private ArrayList<Object> values = new ArrayList<Object>();
+			.....
+			 @Override
+			public void setDynamicAttribute( String uri, String localName, 
+				Object value ) 
+				throws JspException
+			{
+				//添加属性名
+				keys.add( localName );
+				//添加属性值
+				values.add( value );
+			}
+
+
+			<dynamic-attributes>true</dynamic-attributes>
+
+*********************************************************************/
+
+JSP2特性:
+	配置jsp属性:	(使用<jsp-property-group>元素进行配置)
+		1.<el-ignored>:是否允许使用表达式语言
+		2.<scripting-invalid>:是否允许使用JSP脚本
+		3.<page-encoding>:声明jsp页面的编码			（可以代替每个页面page指令contentType属性的charset部分）
+		4.<include-prelude/>和<include-coda>:使用隐式包含	（与jsp提供的静态包含相似）
+
+			<jsp-config>
+				<jsp-property-group>
+					<!-- 对哪些文件应用配置 -->
+					<url-pattern>/noscript/*</url-pattern>
+					<!-- 忽略表达式语言 -->
+					<el-ignored>true</el-ignored>
+					<!-- 页面编码的字符集 -->
+					<page-encoding>GBK</page-encoding>
+					<!-- 不允许使用Java脚本 -->
+					<scripting-invalid>true</scripting-invalid>
+					<!-- 隐式导入页面头  -->
+					<include-prelude>/inc/top.jspf</include-prelude>
+					<!-- 隐式导入页面尾 -->
+					<include-coda>/inc/bottom.jspf</include-coda>
+				</jsp-property-group>
+				....
+			</jsp-config>
+
+	表达式语言:	(只是一种数据访问语言)
+		${expression}
+		>所有java里支持的算术运算符都可以使用
+		>表达式将所有数值都当成浮点数处理
+		>如果需要正常输出"$"符号,则需要转义"\"
+		>支持的算术运算符:+,-,*,/,div,%,mod,?:
+		>支持的逻辑运算符:<,lt,>,gt,>=,ge,<=,le,==,eq,!=,ne,(可以字符之间比较,根据UNICODE值)
+		>表达式语言的内置对象:
+			>>pageContext: 代表该页面的pageContext对象,与JSP的pageContext相同
+			>>pageScope:   用于获取page范围的属性值
+			>>requestScope:用于获取request范围的属性值
+			>>sessionScope:用于获取session范围的属性值
+			>>applicationScope:用于获取application范围的属性值
+			>>param:       用于获取请求的参数值
+			>>paramValues:用于获取请求的参数值 ,与param的区别在于,该对象用于获取属性值为数组的属性值
+			>>header:      用于获取请求头的属性值
+			>>headerVlues: 用于获取请求头的参数值 ,与header的区别在于,该对象用于获取属性值为数组的属性值
+			>>initParam:   用于获取请求Web应用的初始化参数
+			>>cookie:      用于获取指定的Cookie值
+		>表达式语言的自定义函数:	(与自定义标签的去别在于,自定义标签在页面上直接输出,自定义函数在表达式语言中使用)
+			1.开发函数处理类:	(就是普通类,只要包含静态方法,完全可以使用JDK或其他项目提供的类作为函数处理类,只要包含静态方法)			
+			2.使用标签库定义函数:	(与定义标签大致相似)
+				mytaglib.tld:
+					<?xml version="1.0" encoding="GBK"?>
+					<taglib xmlns="http://java.sun.com/xml/ns/j2ee"
+						xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+						xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee 
+						web-jsptaglibrary_2_0.xsd" version="2.0">
+						<tlib-version>1.0</tlib-version>
+						<short-name>crazyit</short-name>
+						<!-- 定义该标签库的URI -->
+						<uri>http://www.crazyit.org/tags</uri>
+						<!-- 定义第一个函数 -->
+						<function>
+							<!-- 定义函数名:reverse -->
+							<name>reverse</name>
+							<!-- 定义函数的处理类 -->
+							<function-class>lee.Functions</function-class>
+							<!-- 定义函数的实现方法-->
+							<function-signature>
+								java.lang.String reverse(java.lang.String)</function-signature>
+						</function>
+					</taglib>
+			3.在JSP页面的EL中使用函数:
+				<%@ page contentType="text/html; charset=GBK" language="java" errorPage="" %>
+				<%@ taglib prefix="crazyit" uri="http://www.crazyit.org/tags"%>
+					....
+						<tr>
+							<td>\${crazyit:reverse(param["name"])}</td>(可以定义成EL中使用的函数必须使用public static修饰)
+							<td>${crazyit:reverse(param["name"])}&nbsp;</td>
+						</tr>	
+					....
+				</html>
+			
+	TagFile支持:	(是自定义标签的简化用法,可以无需定义标签处理类和标签库文件)
+		步骤:
+		>建立Tag文件:	(如同JSP可以代替Servlet,Tag file可以代替标签处理类,TagFile由web容器编译为标签处理类,在tomcat的work/Catalina/localhost/jsp2/org/apache/jsp/tag/web下可以找到对应标签处理类)
+			TagFile内置对象:
+				>request: 与jsp脚本中的request对应
+				>response: 与jsp脚本中的的response对应
+				>session: 与jsp脚本中的的session对应
+				>application: 与jsp脚本中的的application对应
+				>config: 与jsp脚本中的的config对应
+				>out: 与jsp脚本中的的out对应
+			Tag File有5个编译指令:
+				>>taglib:与JSP文件taglib指令相同,用于导入其他标签库
+				>>include:与JSP文件include指令相同,用于导入其他jsp或静态页面
+				>>tag:与JSP中page指令类似,用于设置页面编码
+				>>attribute:用于设置自定义标签的属性,与自定义标签处理类中的标签属性类似
+				>>variable:用于设置自定义标签的变量,这些变量将传给JSP页面使用
+			iterator.tag:	(TagFile的命名规则:tagName.tag,即TagFile主文件名就是标签名,该文件存在web应用下某个路径,这个路径就是标签库URI,这个例子标签库路径为/WEB-INF/tags)
+				<%@ tag pageEncoding="GBK" import="java.util.List"%>
+				<!-- 定义了四个标签属性 -->
+				<%@ attribute name="bgColor" %>
+				<%@ attribute name="cellColor" %>
+				<%@ attribute name="title" %>
+				<%@ attribute name="bean" %>
+				<table border="1" bgcolor="${bgColor}">
+				<tr>
+					<td><b>${title}</b></td>
+				</tr>
+				<%List<String> list = (List<String>)
+					request.getAttribute("a");
+				//遍历输出list集合的元素
+				for (Object ele : list){%>
+					<tr>
+						<td bgcolor="${cellColor}">
+						<%=ele%>
+						</td>
+					</tr>
+				<%}%>
+				</table>
+		>在页面中使用自定义标签:
+			<%@ page contentType="text/html; charset=GBK" language="java" errorPage="" %>
+			<%@ page import="java.util.*" %>
+			<%@ taglib prefix="tags" tagdir="/WEB-INF/tags" %>
+			<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+				"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+			<html xmlns="http://www.w3.org/1999/xhtml">
+			<head>
+				<title>迭代器tag file</title>
+				<meta name="website" content="http://www.crazyit.org" />
+			</head>
+			<body>
+				<h2>迭代器tag file</h2>
+				<%
+				//创建集合对象，用于测试Tag File所定义的标签
+				List<String> a = new ArrayList<String>();
+				a.add("hello");
+				a.add("world");
+				a.add("java");
+				//将集合对象放入页面范围
+				request.setAttribute("a" , a);
+				%>
+				//使用自定义标签
+				<tags:iterator bgColor="#99dd99" cellColor="#9999cc"
+					title="迭代器标签" bean="a" />
+			</body>
+			</html>
+										

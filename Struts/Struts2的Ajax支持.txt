@@ -1,0 +1,220 @@
+Struts2的Ajax支持:
+	使用stream类型Result实现Ajax:
+		注意:
+			1.使用stream类型的result,Struts2可以无需JSP页面视图,直接在Action向浏览器生成指定响应
+		例:	(下面页面登录使用jQuery)
+			登录页面:
+				<s:form id="loginForm">
+					<s:textfield name="user" label="用户名"/>
+					<s:textfield name="pass" label="密码"/>
+					<tr><td colspan="2">
+					<input id="loginBn" type="button" value="提交"/>
+					</td></tr>
+				</s:form>
+				<div id="show" style="display:none;">
+				</div>
+				<script type="text/javascript">
+					//为id为loginBn的按钮绑定事件处理函数
+					$("#loginBn").click(function()
+					{
+						//指定向loginPro发送请求，以id为loginForm表单里各表单控件作为请求参数
+						$.get("loginPro" , $("#loginForm").serializeArray() , 
+							//指定回调函数
+							function(data , statusText)
+							{
+								$("#show").height(80)
+									.width(300)
+									.css("border" , "1px solid black")
+									.css("background-color" , "#efef99")
+									.css("color" , "#ff0000")
+									.css("padding" , "20px")
+									.empty();
+								$("#show").append("登录结果：" + data + "<br />");
+								$("#show").show(2000);
+							},
+							//指定服务器响应为html
+							"html");
+					});
+				</script>
+			处理请求的Action:
+				public class LoginAction
+					implements Action
+				{
+					//封装请求参数的两个属性
+					private String user;
+					private String pass;
+					//封装输出结果的二进制流
+					private InputStream inputStream;
+
+					//user属性的setter和getter方法
+					public void setUser(String user)
+					{
+						this.user = user;
+					}
+					public String getUser()
+					{
+						return this.user;
+					}
+
+					//pass属性的setter和getter方法
+					public void setPass(String pass)
+					{
+						this.pass = pass;
+					}
+					public String getPass()
+					{
+						return this.pass;
+					}
+
+					public InputStream getResult()
+					{
+						return inputStream;
+					}
+
+					public String execute() 
+						throws Exception 
+					{
+						//判断用户名、密码，生成对应的响应
+						inputStream = user.equals("crazyit.org") && pass.equals("leegang")
+							? new ByteArrayInputStream("恭喜你，登录成功!"
+								.getBytes("UTF-8"))
+							: new ByteArrayInputStream("对不起，用户名、密码不匹配！"
+								.getBytes("UTF-8"));
+						return SUCCESS;
+					}
+				}
+			配置:
+				<action name="loginPro" class="org.crazyit.app.action.LoginAction">
+					<result name="success" type="stream">
+						<!-- 指定下载文件的文件类型 -->
+						<param name="contentType">text/html</param>
+						<!-- 指定由getResult()方法返回输出结果的InputStream -->
+						<param name="inputName">result</param>
+					</result>
+					<!-- 定义一个名为login的结果 -->
+					 <result name="login">/WEB-INF/content/login.jsp</result>
+				</action>
+	
+	使用JSON插件实现Ajax:	(需将struts2-json-plugin-*.*.*.jar复制到Web应用WEB-INF/lib路径下)
+			实现Action逻辑:
+				public class JSONExample
+				{
+					//模拟处理结果的属性
+					private int[] ints = {10, 20};
+					private Map<String , String> map
+						= new HashMap<String , String>();
+					private String customName = "顾客";
+					//封装请求参数的三个属性
+					private String field1;
+					//'transient'修饰的属性不会被序列化
+					private transient String field2;
+					//没有setter和getter方法的字段不会被序列化
+					private String field3;
+					
+					public String execute()
+					{
+						map.put("name", "疯狂Java讲义");
+						return Action.SUCCESS;
+					}
+
+					//使用注释语法来改变该属性序列化后的属性名
+					@JSON(name="newName")
+					public Map getMap()
+					{
+						return this.map;
+					}
+					
+					//customName属性的setter和getter方法
+					public void setCustomName(String customName)
+					{
+						this.customName = customName;
+					}
+					public String getCustomName()
+					{
+						return this.customName;
+					}
+
+					//field1、field2、field3属性的setter和getter方法	
+				}
+				注意:
+					1.上面代码中使用了JSON注释,改变了JSON对象的属性名字
+					2.JSON还支持如下属性:
+						>>serialize:设置是否序列化该属性
+						>>deserialize:设置是否反序列化该属性
+						>>format:设置用于格式化输出、解析日期表单域的格式。例如“yyyy-MM-dd'T'HH:mm:ss”
+			配置:
+				<constant name="struts.i18n.encoding" value="UTF-8"/>
+				<package name="example"  extends="json-default">
+					<action name="JSONExample" class="org.crazyit.app.action.JSONExample">
+						<!-- 配置类型的json的Result -->
+						<result type="json">
+							<!-- 为该Result指定参数 -->
+							<param name="noCache">true</param>
+							<param name="contentType">text/html</param>
+							<!-- 设置只序列Action的map属性 -->
+							<!--  param name="root">map</param -->
+						</result>
+					</action>
+					<action name="*">
+						<result>/WEB-INF/content/{1}.jsp</result>
+					</action>
+				</package>
+				注意:
+					1.指定了类型为json的Result则该Action无需映射任何视图资源,JSON插件会将Action里状态信息序列化为JSON格式字符串
+					  返回视图
+					2.配置struts.i18n.encoding,不再使用GBK,因为Ajax的POST请求都是以UTF-8进行编码
+					3.不再继承默认default包,因为只有json-default才有json类型Result
+			
+			实现JSP页面:	(下面页面使用Prototype.js)
+				<head>
+					<script src="${pageContext.request.contextPath}/prototype-1.6.1.js" 
+						type="text/javascript">
+					</script>
+					<script type="text/javascript">
+						function gotClick()
+						{
+							//请求的地址
+							var url = 'JSONExample.action';
+							//将favorite表单域的值转换为请求参数
+							var params = Form.serialize('form1');
+							//创建Ajax.Request对象，对应于发送请求
+							var myAjax = new Ajax.Request(
+							url,
+							{
+								//请求方式：POST
+								method:'post',
+								//请求参数
+								parameters:params,
+								//指定回调函数
+								onComplete: processResponse,
+								//是否异步发送请求
+								asynchronous:true
+							});
+						}
+						function processResponse(request)
+						{
+							//使用JSON对象将服务器响应解析成JSON对象
+							var res = request.responseText.evalJSON();
+							alert(res);
+							//遍历JSON对象的每个属性
+							for(var propName in res)
+							{
+								$("show").innerHTML += propName + " --> " 
+									+ res[propName] + "<br/>";
+							}		
+						}	
+					</script>
+				</head>
+				<body>
+					<s:form id="form1">
+						<s:textfield name="field1" label="Field 1"/>
+						<s:textfield name="field2" label="Field 2"/>
+						<s:textfield name="field3" label="Field 3"/>
+						<tr><td colspan="2">
+						<input type="button" value="提交" onclick="gotClick();"/>
+						</td></tr>
+					</s:form>
+					<div id="show">
+					</div>
+				</body>
+									

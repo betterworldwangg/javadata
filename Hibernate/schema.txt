@@ -1,0 +1,6 @@
+Oracle数据库中Schema和User的关系是一一对应的，也就是说一个Schema只对应一个User，一个User对应一个Schema。当某个User下面有table,view,Index......等Schema Object时，这个User就成了一个Schema，也就是在Enterprise Manager中出现的那个，如果某个User下面没有table,view,Index......等Schema Object时，这个User不会在Enterprise Manager中Schema对象出现。
+-----------------------------------------------------------------------------------------
+在一个数据库中可以有多个应用的数据表，这些不同应用的表可以放在不同的schema之中，同时，每一个schema对应一个用户，不同的应用可以以不同的用户连接数据库，这样，一个大数据库就可以根据应用把其表分开来管理。
+不同的schema之间它们没有直接的关系，不同的shcema之间的表可以同名，也可以互相引用（但必须有权限），在没有操作别的schema的操作根权下，每个用户只能操作它自己的schema下的所有的表。不同的schema下的同名的表，可以存入不同的数据（即schema用户自己的数据）。
+
+把schemａ翻译成　“方案”还是比较合理的。

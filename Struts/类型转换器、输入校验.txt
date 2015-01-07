@@ -1,0 +1,763 @@
+Struts2的类型转换:	(HTTP请求参数与java强类型的转换,只要把HTTP参数命名为合法OGNL表达式,就可以充分利用Struts2的类型转换机制
+			 如果类型转换中出现未知异常,Struts2的conversionError拦截器会自动处理该异常并在页面上生成提示信息)
+		内建的类型转换器:	(struts2已经内建了字符串和如下类型之间相互转换的转换器)
+			>boolean和Boolean
+			>char和Character
+			>inthe和Integer
+			>long和Long
+			>float和Float
+			>double和Double
+			>Date			(日期格式使用用户请求所在Local的SHORT格式)
+			>数组			(默认情况下,数组元素是字符串,如果用户提供了自定义类型转换器,也可是其他复合类型的数组)
+						（按照元素类型单独转换每一个元素,但如果数组元素的类型本身无法完成转换,将出现类型转换错误）
+			>集合			（默认情况下,假定集合元素类型为String,并创建一个新的ArrayList封装所有的字符串）
+
+		基于OGNL的类型转换:	(Struts2允许以另一种简单方式将请求参数转换为复合类型)
+				public class User
+				{
+					private String name;
+					private String pass;
+					//name和pass属性的setter和getter方法
+					...
+				}
+
+				public class LoginAction implements Action
+				{
+					private User user;
+					//user的setter和getter方法
+					public String execute()throws Exception
+					{
+					   ...
+					}
+				}				
+				
+				<s:form action="login">
+					<!-- 该表单域封装的请求参数名为user.name -->
+					<s:textfield name="user.name" label="用户名"/>
+					<!-- 该表单域封装的请求参数名为user.pass -->
+					<s:textfield name="user.pass" label="密码"/>
+					...
+				</s:form>
+			
+					注意:
+						>因为Struts2将通过反射来创建一个复合类(User类)的实例,因此必须为该User类提供无参数构造器
+						>如果使用user.name的形式为Action实例的user的name属性赋值,则必须为user的name属性提供setter方法
+
+				
+				public class LoginAction implements Action
+				{
+					private Map<String , User> users;	(泛型可以让Struts2通过反射来创建对应的类)
+					//users属性的setter和getter方法				    |
+					public String execute()throwss Exception			    |
+					{								    |
+					   ...								    |
+					}								    |
+				}									    |
+													    |
+				<s:form action="login">							    |
+					<s:textfield name="users['one'].name" label="第one个用户名"/>	    |
+					...								    |
+				</s:form>								    |
+													    v
+		指定集合元素类型:		(对于集合如果不指定泛型,必须通过局部类型转换文件指定集合类型)
+				
+				public class LoginAction implements Action
+				{
+					private List users			(没有指定泛型,必须通过局部类型转换文件指定)
+					//users属性的setter和getter方法
+					public String execute()throws Exception
+					{
+					   ...
+					}
+				}
+
+				Element_users=org.wang.app.action.User	(局部类型文件放在与Action类相同位置)
+
+				局部类型转换文件名为:	ActionName-conversion.properties	(ActionName为类名,-conversion.properties为固定部分)
+				List:
+				局部类型文件格式: Element_ListPropName=ElementType		(Element是固定的)
+				Map:
+				局部类型转换文件格式:Key_MapPropName=KeyType			(Key是固定的)
+							Element_MapPropName=ValueType		(Element是固定的)
+
+		自定义类型转换器:
+			提供类型转换器:	
+				1.	(通常需要继承DefaultTypeConverter重写convertValue方法)
+					public class UserConverter extends DefaultTypeConverter 
+					{
+						//类型转换器必须重写convertValue方法，该方法需要完成双向转换
+						public Object convertValue(Map context
+							, Object value, Class toType)
+						{
+							//当需要将字符串向User类型转换时
+							if (toType == User.class )
+							{
+							    ...
+							}
+							else if(toType == String.class)
+							{
+							   ...
+							}
+							return null
+						}
+					}
+
+					convertValue方法参数和返回值意义:
+						>第一个参数:context是类型转换环境的上下文
+						>第二个参数:value是需要转换的参数,随着转换方向的不同而不同
+						>第三个参数:toType是转换后的类型
+					（convertValue接收需要转换的值,需要转换的目标类型为参数,然后返回转换后的目标值）
+				2.	(通过继承StrutsTypeConverter抽象类,该类是DefaultTypeConverter的子类convertValue分解为两个方法,更简单)
+					public class UserConverter extends StrutsTypeConverter 
+					{
+						//实现将字符串类型转换成复合类型的方法
+						public Object convertFromString(Map context
+							, String[] values , Class toClass)
+						{
+							//创建一个User实例
+							...
+							return user;
+						}
+						//实现将复合类型转换成字符串类型的方法
+						public String convertToString(Map context, Object o)
+						{
+							//将需要转换的值强制类型转换为User实例
+							...
+							return "<" + user.getName() + ","
+								+ user.getPass() + ">";
+						}
+					}
+
+					方法参数与返回值与上边相同
+			
+			注册类型转换器:	(必须将类型转换器注册在Web应用中,Struts2框架才可以正常使用该类型转换器)
+				1.局部类型转换器:	(使用局部类型转换文件指定,局部类型转换文件命名为ActionName-conversion.properties,与Action在相同位置
+							 只对属性转换一次)
+					propName=ConverterClass
+					例: user=org.wang.app.converter.UserConverter
+				2.全局类型转换器:	(不是对指定Action的指定属性起作用,而是对指定类型起作用,转换文件为xwork-conversion.properties,放在类加载路径下即可
+							 如果一个Action是数组或集合,有几个元素就转换几次)
+					propType=ConverterClass
+					例:org.wang.app.domain.User=org.wang.app.converter.UserConverter
+				
+					
+		处理Set集合:	(由于Set集合的无序性,Struts2无法准确读取Set集合里的元素,除非Set集合里的元素有一个标识属性)			
+				public class LoginAction extends ActionSupport
+				{
+					private Set users;
+					private Date birth;
+					//user属性的setter和getter方法
+					//birth属性的setter和getter方法
+					...
+				}
+				public class UserConverter extends StrutsTypeConverter 
+				{
+					public Object convertFromString(Map context
+						, String[] values, Class toClass)
+					{
+						Set result = new HashSet();
+						...
+						return result;
+					}
+					
+					public String convertToString(Map context, Object o)
+					{
+						//如果待转换对象的类型是Set
+						...
+					}
+				}
+				public class User
+				{
+					private String name;
+					private String pass;
+					
+					//name属性的setter和getter方法
+					//pass属性的setter和getter方法
+					...
+					public boolean equals(Object obj)
+					{
+						...				（标识属性为name）
+						
+					}
+					//根据name属性来计算hashCode。
+					public int hashCode()
+					{
+						...
+					}
+				}
+				LoginAction-convertion.properties:	(该文件与LoginAction在同一路径下)
+					#指定users属性的类型转换器是UserConverter
+					users=org.crazyit.app.converter.UserConverter
+					#指定users集合属性里集合元素的索引属性是name
+					KeyProperty_users=name
+				
+				<!-- 访问user集合属性里索引属性值为crazyit.org的元素的name属性-->（Set集合用的是圆括号,数组、List、Map用的是方括号）
+				用户crazyit.org的用户名为：<s:property value="users('crazyit.org').name"/><br/>
+				<!-- 访问user集合属性里索引属性值为crazyit.org的元素的pass属性-->
+				用户crazyit.org的密码为：<s:property value="users('crazyit.org').pass"/><br/>
+			通过局部类型转换文件来指定Set集合元素的标识属性:
+					keyProperty_SetPropName=keyPropName
+					
+		类型转换中的错误处理:(当Struts2的类型转换器出现错误,conversionError拦截器负责将对应错误封装成表单域错误(FieldError),并将错误信息放入ActionContext中)
+				       (当conversionError拦截器对转换异常处理后,系统会跳转到名为input的逻辑视图)
+				       (为了让Struts框架处理类型转换的错误,以及使用数据校验机制,Action类应该继承ActionSupport,该类为类型转换和数据校验做了许多工作)
+				处理类型转换错误:
+					public class LoginAction
+						extends ActionSupport
+					{
+						private User user;
+						private String tip;
+						//user属性的setter和getter方法
+						//tip属性的setter和getter方法
+						...
+						//execute方法
+					}
+
+					<constant name="struts.custom.i18n.resources" value="mess"/>
+					<package name="lee" extends="struts-default">
+						<action name="login" class="org.crazyit.app.action.LoginAction">
+							<!-- 配置名为input的逻辑视图，
+								当转换失败后转入该逻辑视图 -->
+							<result name="input">/input.jsp</result>
+							<result name="success">/welcome.jsp</result>
+							<result name="error">/welcome.jsp</result>
+						</action>
+					</package>
+					显示错误提示信息:
+						如果转换错误会进入input.jsp页面,默认<s:fielderror/>标签会输出Invalid field value for field xxx的错误提示信息,其中xxx是Action中属性名
+						要改变错误提示信息,只需在国际化资源文件中增加如下一行:
+							xwork.default.invalid.fieldvalue={0}字段类型转换失败！
+					对特定字段指定特别提示信息:	(可通过在Action局部资源文件中增加如下一行)
+						invalid.fieldvalue.propName=tipMsg	(此处propName可支持OGNL表达式)
+						例:	(改变birth属性类型转换失败提示信息)
+							public class LoginAction extends ActionSupport
+							{
+								private User user
+								//user的setter和getter方法
+								...
+							}
+							LoginAction_zh_CN.properties:	(局部资源文件,与Action相同路径下)
+								invalid.fieldvalue.user.birth=生日必须满足yyyy-MM-dd格式
+
+		处理集合属性的转换错误:
+				public class LoginAction extends ActionSupport
+				{
+					private List<User> users;
+					
+					//users属性的setter和getter方法
+					...
+				}
+
+				有两种方式传入请求参数:
+					>只传入一个users请求参数,该请求参数是字符串数组形式
+					>分别传入多个uses[1],users[1]...,这种形式将会充分利用OGNL表达式类型转换规则
+				
+				<s:form action="login">
+					<s:iterator value="{0, 1, 2}" status="stat">
+						<!-- 将会依次生成多个请求参数 -->
+						<s:textfield name="users[%{#stat.index}]" 
+							label="第%{#stat.index}个用户信息"/>
+					</s:iterator>
+					<tr>
+						<td colspan="2"><s:submit value="转换" theme="simple"/>
+						<s:reset value="重填" theme="simple"/></td>
+					</tr>
+				</s:form>
+
+******************************************************************************************/
+										
+Struts2的输入校验:
+	编写校验规则文件:
+		jsp:
+			<s:fielderror/>
+			<s:form action="regist">
+				<s:textfield name="name" label="用户名"/>
+				....
+				<s:submit value="注册"/>
+			</s:form>
+		action:
+			public class RegistAction extends ActionSupport
+			{
+				private String name;
+				....
+				//以上四个属性的setter和getter方法
+				....
+			}
+		RegistAction-validation.xml:	（校验文件遵循命名规则:Action名字-validation.xml,该文件应保存在与对应Action class相同路径下）
+			<?xml version="1.0" encoding="GBK"?>
+			<!-- 指定校验配置文件的DTD信息 -->
+			<!DOCTYPE validators PUBLIC 
+				"-//OpenSymphony Group//XWork Validator 1.0.3//EN"
+				"http://www.opensymphony.com/xwork/xwork-validator-1.0.3.dtd">
+			<!-- 校验文件的根元素 -->
+			<validators>
+				<!-- 校验Action的name属性 -->
+				<field name="name">
+					<!-- 指定name属性必须满足必填规则 -->
+					<field-validator type="requiredstring">
+						<param name="trim">true</param>
+						<message>必须输入名字</message>
+					</field-validator>
+					<!-- 指定name属性必须匹配正则表达式 -->
+					<field-validator type="regex">
+						<param name="expression"><![CDATA[(\w{4,25})]]></param>
+						<message>您输入的用户名只能是字母和数字
+							，且长度必须在4到25之间</message>
+					</field-validator>
+				</field>
+				....
+			</validators>
+		struts.xml:
+			<action name="regist" class="org.crazyit.app.action.RegistAction">
+				<!-- 类型转换失败、输入校验失败，转入该页面 -->
+				<result name="input">/regist.jsp</result>
+				<result>/show.jsp</result>
+			</action
+		注意:
+			1.当校验失败后,Struts2自动返回名为"input"的Result
+			2.类型转换失败、校验失败的提示信息都被封装成FieldError,并被放入ActionContext,都都返回input,都使用<s:fielderror/>来输出错误提示信息
+			3.如果使用了Struts2的表单标签生成表单,那么表单标签会自动输出错误提示
+
+	国际化提示信息:	(为了国际化提示信息,为message元素指定key属性,该key属性对应国际化资源文件中的key)
+			RegistAction-validation.xml:	(该文件与对应Action Class在同一路径)
+				<field name="name">
+					<!-- 指定name属性必须满足必填规则 -->
+					<field-validator type="requiredstring">
+						<param name="trim">true</param>
+						<message key="name.required"/>
+					</field-validator>
+					<!-- 指定name属性必须匹配正则表达式 -->
+					<field-validator type="regex">
+						<param name="expression"><![CDATA[(\w{4,25})]]></param>
+						<message key="name.regex"/>
+					</field-validator>
+				</field>
+				....
+			mess_zh_CN.properties:		(该文件在类加载路径下)
+				name.required=您必须输入用户名!
+				name.regex=您输入用户名只能是字母和数字,且长度必须在4到25之间!
+				....
+	
+	客户端校验:
+		只要如下步骤:	(访问输入页面必须经过Struts2的核心Filter,否则不管用)
+			1.将输入页面的表单标签改为使用Struts2标签来生成
+			2.为<s:form../>元素增加validate="true"属性
+				<s:form method="post" action="registPro" validate="true">
+					....
+				</s:form>
+			注意:
+				>Struts2的<s:form../>有一个theme属性,不可将该属性设置为simple
+				>不能直接访问客户端校验的表单页,这样会引发异常,可把客户端校验表单页放到WEB-INF路径下,让其先经过Struts2的核心Filter
+				>启用客户端校验的表单页的action和namespace要分开写,例<s:from action="registPro" namespace="/wang"/>不可写成<s:from action="wang/registPro“/>
+
+	字段校验器:	（字段优先）
+			<field name="被校验的字段">							(要满足的规则,指定校验器)
+				<field-validator type="校验器名">					(校验器参数)
+					<param name="参数名">参数值</param>
+					....
+					<message key="I18Nkey">校验失败后的提示信息</message>
+				</field-validator>							
+				....									（指定更多校验器）
+			</field>
+
+	非字段校验器:	（校验器优先）
+			<validator type="校验器名">							（指定校验器器）
+				<param name="fieldName">需要被校验的字段</param>
+				<param name="参数名">参数值</param>					（校验器参数）
+				....									（更多参数）
+				<message key="I18Nkey">校验失败后的提示信息</message>		
+			</validator>
+			RegistAction-validation.xml:
+				<?xml version="1.0" encoding="GBK"?>
+				<!-- 指定Struts 2数据校验的规则文件的DTD信息 -->
+				<!DOCTYPE validators PUBLIC 
+					"-//OpenSymphony Group//XWork Validator 1.0.3//EN"
+					"http://www.opensymphony.com/xwork/xwork-validator-1.0.3.dtd">
+				<!-- Struts 2校验文件的根元素 -->
+				<validators>
+					<!-- 配置指定必填字符串的校验器 -->
+					<validator type="requiredstring">
+						<!-- 使用该校验器校验name属性 -->
+						<param name="fieldName">name</param>
+						<param name="trim">true</param>
+						<!-- 指定校验失败后输出name.required对应的国际化信息 -->
+						<message key="name.requried"/>
+					</validator>
+					<!-- 配置指定正则表达式的校验器 -->
+					<validator type="regex">
+						<!-- 使用该校验器校验name属性 -->
+						<param name="fieldName">name</param>
+						<param name="trim">true</param>
+						<param name="expression"><![CDATA[(\w{4,25})]]></param>
+						<!-- 指定校验失败后输出name.required对应的国际化信息 -->
+						<message key="name.regex"/>
+					</validator>
+					....
+				</validators>
+
+	短路校验器:	(对于同一个子段内的多个校验器,如果一个短路校验器校验失败,其他校验器根本不会继续校验)
+		>只需在<validator../>或<field-validator../>元素中增加short-circuit="true"即可
+		>如果在客户端使用短路校验器,只需在<s:form../>中增加validate="true"即可,客户端短路校验时第一个校验失败,不会再校验后边的表单域
+
+			<field name="name">
+				<!-- 指定name属性必须满足必填规则 -->
+				<field-validator type="requiredstring" short-circuit="true">
+					<param name="trim">true</param>
+					<message key="name.requried"/>
+				</field-validator>
+				....
+			</field>
+
+	同一Action不同处理逻辑指定不同校验规则:	
+			RegistAction:
+				public class RegistAction extends BaseAction
+				{
+					...
+					public String regist()
+					{
+						return SUCCESS;
+					}
+					public String login()
+					{
+						return SUCCESS;
+					}
+				}
+			struts.xml:
+				<action name="*Pro" class="org.crazyit.app.action.RegistAction"
+					method="{1}">
+					<result name="input">/WEB-INF/content/form.jsp</result>
+					<result>/WEB-INF/content/show.jsp</result>
+				</action>
+			为不同逻辑指定不同指定不同校验规则文件:
+			loginPro:	(名为为RegistAction-loginPro-validation.xml)(loginPro为struts.xml中login处理逻辑指定的Action name属性)
+
+			注意:
+				RegistAction-validation.xml依然对loginPro起作用,实际上,loginPro的Action中包含的校验规则是RegistAction-loginPro-validation和RegistAction-validation.xml之和
+
+	校验文件的搜索规则:
+			如果RegistAction类继承了BaseAction类,则校验规则顺序为:
+				1.BaseAction-validation.xml
+				2.BaseAction-loginPro-validation.xml
+				3.RegistAction-validation.xml
+				4.RegistAction-loginPro-validation.xml
+
+			(即使找到第一个校验文件,还会向下搜,不管有没有这四份文件,也不管是否找到配置文件,总是按照固定顺序搜索,
+			 实际用的校验规则是所有校验规则的总和,如果两个校验文件有冲突,则后面的校验规则取胜)
+	校验顺序和短路:
+			>所有非字段校验器优先于字段校验器
+			>所有非字段校验器排在前面的先执行
+			>所有字段校验器排在前面的先执行
+		校验器短路的原则是:
+			>所有非字段最先执行,如果某个非字段校验器失败了,则该字段上所有字段校验器不会获得执行机会
+			>非字段校验器校验失败,不会阻止其他非字段校验执行
+			>如果一个字段校验器校验失败,则之后的字段校验器不会获得执行机会
+			>字段校验器永远不会阻止非字段校验器的执行
+		（如果所需校验规则非常复杂,可以开发自己的校验器,或重写Action的validate方法）
+
+	内建校验器:	(在Struts2的xwork-*.*.*.jar下com/opensymphony/xwork2/validator/validators路径下有default.xml,该文件就是Struts2默认的校验器注册文件)
+			(通过<validator../>元素即可注册一个校验器,该元素name属性指定校验器的名字,class属性指定校验器的实现类)
+			(如果开发了自己的校验器,可通过validators.xml文件来注册校验器,该文件也是由 多个<validator../>元素组成,该文件放在类加载路径下)
+			(如果提供了自己的validators.xml文件,系统不会再加载默认的default.xml文件,所以此时一定要把default.xml中的所有内容复制到validators.xml中)
+
+		必填校验器:	(参考Struts2API)
+		必填字符串校验器:(参考Struts2API)
+		整数校验器:(参考Struts2API)
+		日期校验器:(参考Struts2API)
+		字段表达式校验器:(参考Struts2API)
+		邮件地址校验器:(参考Struts2API)
+		网址校验器:(参考Struts2API)
+		Visitor校验器:	(用于校验Action里的复合属性)
+				public class User
+				{
+					private String name;
+					private String pass;
+					private int age;
+					private Date birth;
+					//四个属性的setter和getter方法
+					...
+				}
+				public class RegistAction
+					extends ActionSupport
+				{
+					private User user;
+					
+					//user属性的setter和getter方法
+				}	
+			RegistAction-validation.xml:	(与Action在同一路径下)
+				<?xml version="1.0" encoding="GBK"?>
+				<!-- 指定校验规则文件的DTD信息 -->
+				<!DOCTYPE validators PUBLIC 
+					"-//OpenSymphony Group//XWork Validator 1.0.3//EN"
+					"http://www.opensymphony.com/xwork/xwork-validator-1.0.3.dtd">
+				<!-- 校验规则文件的根元素 -->
+				<validators>
+					<!-- 指定校验user字段 -->
+					<field name="user">
+						<!-- 使用Visitor校验器 -->
+						<field-validator type="visitor">
+							<!-- 指定校验规则文件的context -->
+							<param name="context">userContext</param>
+							<!-- 指定校验失败后提示信息是否添加下面前缀 -->
+							<param name="appendPrefix">true</param>
+							<!-- 指定校验失败的提示信息前缀 -->
+							<message>用户的：</message>
+						</field-validator>
+					</field>
+				</validators>
+			User-userContext-validation.xml:	(与User在同一路径下,默认该文件名为User-validaion.xml,因为在struts.xml中配置Visitor时指定context为userContext,所以该文件名为User-userContext-validation.xml)
+				<?xml version="1.0" encoding="GBK"?>
+				<!-- 指定校验配置文件的DTD信息 -->
+				<!DOCTYPE validators PUBLIC 
+					"-//OpenSymphony Group//XWork Validator 1.0.3//EN"
+					"http://www.opensymphony.com/xwork/xwork-validator-1.0.3.dtd">
+				<!-- 校验文件的根元素 -->
+				<validators>
+					<!-- 校验User属性的name属性 -->
+					<field name="name">
+						<!-- 指定name属性必须满足必填规则 -->
+						<field-validator type="requiredstring">
+							<param name="trim">true</param>
+							<!-- 如果校验失败，输出name.requried对应的国际化信息 -->
+							<message key="name.requried"/>
+						</field-validator>
+						<!-- 指定name属性必须匹配正则表达式 -->
+						<field-validator type="regex">
+							<param name="expression"><![CDATA[(\w{4,25})]]></param>
+							<!-- 如果校验失败，输出name.regex对应的国际化信息 -->
+							<message key="name.regex"/>
+						</field-validator>
+					</field>
+					<!-- 校验User属性的pass属性 -->
+					<field name="pass">
+						<!-- 指定pass属性必须满足必填规则 -->
+						<field-validator type="requiredstring">
+							<param name="trim">true</param>
+							<!-- 如果校验失败，输出pass.requried对应的国际化信息 -->
+							<message key="pass.requried"/>
+						</field-validator>
+						<!-- 指定pass属性必须满足匹配指定的正则表达式 -->
+						<field-validator type="regex">
+							<param name="expression"><![CDATA[(\w{4,25})]]></param>
+							<!-- 如果校验失败，输出pass.regex对应的国际化信息 -->
+							<message key="pass.regex"/>
+						</field-validator>
+					</field>
+					<!-- 指定User属性的age属性必须在指定范围内-->
+					<field name="age">
+						<field-validator type="int">
+							<param name="min">1</param>
+							<param name="max">150</param>
+							<!-- 如果校验失败，输出age.range对应的国际化信息 -->
+							<message key="age.range"/>
+						</field-validator>
+					</field>
+					<!-- 指定User属性的birth属性必须在指定范围内-->
+					<field name="birth">
+						<field-validator type="date">
+							<!-- 下面指定日期字符串时，必须使用本Locale的日期格式 -->
+							<param name="min">1900-01-01</param>
+							<param name="max">2050-02-21</param>
+							<!-- 如果校验失败，输出birth.range对应的国际化信息 -->
+							<message key="birth.range"/>
+						</field-validator>
+					</field>
+				</validators>
+								
+				<s:form action="registPro">
+					<s:textfield name="user.name" label="用户名"/>
+					<s:textfield name="user.pass" label="密码"/>
+					<s:textfield name="user.age" label="年龄"/>
+					<s:textfield name="user.birth" label="生日"/>
+					<s:submit value="注册"/>
+				</s:form>
+
+		转换校验器:(参考Struts2API)
+		字符串长度校验器:(参考Struts2API)
+		正则表达式校验器:(参考Struts2API)
+
+	基于Annotation的输入校验:	(Struts2在com.opensymphony.xwork2.validator.annotations包下提供了大量校验器相关的Annotation,这些Annotation有Xwork提供,不需Convention插件)
+		为Action通过Annotation指定验证规则,只需如下步骤:
+			>使用验证器Annotation修饰Action里个属性对应的setter方法
+
+			public class RegistAction extends ActionSupport
+			{
+				private String name;
+				private String pass;
+				private int age;
+				private Date birth;
+				
+				//name属性的setter和getter方法
+				//使用Annotation指定必填、正则表达式两个校验规则
+				@RequiredStringValidator(key = "name.requried"
+					, message = "")
+				@RegexFieldValidator(expression = "\\w{4,25}"
+					,key = "name.regex" , message = "")
+				public void setName(String name)
+				{
+					this.name = name;
+				}
+				public String getName()
+				{
+					return this.name;
+				}
+
+				//pass属性的setter和getter方法
+				@RequiredStringValidator(key = "pass.requried"
+					,message = "")
+				@RegexFieldValidator(expression = "\\w{4,25}"
+					,key = "pass.regex" ,message = "")
+				public void setPass(String pass)
+				{
+					this.pass = pass;
+				}
+				public String getPass()
+				{
+					return this.pass;
+				}
+
+				//age属性的setter和getter方法
+				@IntRangeFieldValidator(message = ""
+					, key = "age.range", min = "1"
+					, max = "150")
+				public void setAge(int age)
+				{
+					this.age = age;
+				}
+				public int getAge()
+				{
+					return this.age;
+				}
+
+				//birth属性的setter和getter方法
+				//使用Annotation指定日期范围校验规则
+				@DateRangeFieldValidator(message = ""
+					, key = "birth.range", min = "1900/01/01"
+					, max = "2050/01/21")
+				public void setBirth(Date birth)
+				{
+					this.birth = birth;
+				}
+				public Date getBirth()
+				{
+					return this.birth;
+				}
+			}
+													
+	手动完成输入校验:	(对于一些特殊验证要求,可通过Struts2手动校验)
+		1.重写validate()方法
+			public class RegistAction extends ActionSupport
+			{
+				private String name;
+				private String pass;
+				private int age;
+				private Date birth;	
+				//以上四个属性的setter和getter方法
+				....
+				public void validate()
+				{
+					System.out.println("进入validate方法进行校验"
+						+ name);
+					//要求用户名必须包含crazyit子串
+					if(!name.contains("crazyit"))
+					{
+						addFieldError("user" , 
+							"您的用户名必须包含crazyit！");	（一旦发现校验失败,就将提示信息放入FieldError中,与类型转换失败是一样的,系统一旦发现FieldError不为空,就转入input视图）
+					}
+				}
+			}
+
+			（在input对应jsp中要增加<s:fielderror/>用于输出错误提示信息）
+			（考虑国际化可通过ActionSupport类提供的getText()方法来取得国际化资源文件内容）
+		2.重写validateXxx()方法
+				(validate()方法会校验所有处理逻辑,如果Action包含多个处理逻辑,又相对某个处理逻辑校验则需使用该方法)
+				(Action提供的validateXxx()方法校验的就是Action的xxx（）逻辑处理)
+
+				public class RegistAction extends ActionSupport
+				{
+					private String name;
+					private String pass;
+					private int age;
+					private Date birth;	
+					//以上四个属性setter、getter方法
+					....
+					public String regist()
+					{
+						return SUCCESS;
+					}
+					public void validate()
+					{
+					  ....
+					}
+					public void validateRegist()
+					{
+						System.out.println("进入validateRegist方法进行校验"
+							+ name);
+						//要求用户名必须包含.org子串
+						if(!name.contains(".org"))
+						{
+							addFieldError("user" , 
+								"您的用户名必须包含.org！");
+						}
+					}
+				}
+
+				)
+				<!-- 定义处理用户请求的regist Action，使用.RegistAction的regist
+					方法处理用户请求 -->
+				<action name="registPro" class="org.crazyit.app.action.RegistAction"
+					method="regist">
+					<result name="input">/WEB-INF/content/regist.jsp</result>
+					<result>/WEB-INF/content/show.jsp</result>
+				</action>
+				(当用户向registePro发送请求时,将由regist处理逻辑处理,validateRegist()先被调用,然后validate方法被调用)
+				（在input对应jsp中要增加<s:fielderror/>用于输出错误提示信息）
+				（考虑国际化可通过ActionSupport类提供的getText()方法来取得国际化资源文件内容）
+			
+		
+	Struts2的输入校验流程图:
+					
+
+					●
+					|
+					|
+					v
+			     对请求参数执行类型转换
+					|
+					|
+					v		是
+				类型转换是否出错――――――――――――――――――――>将错误提示保存到ActionContext里
+					|						|
+					|否						|
+					|						|
+					v						v
+				内建验证器进行验证﹤――――――――――――――――conversionError负责将其转换成FieldError
+					|
+					|
+					|
+					v
+				执行validateXxx()方法
+					|
+					|
+					|
+					|
+					v
+				执行validate()方法
+					|
+					|
+					|
+					|
+					v		是（跳转Action处理逻辑,返回input视图）
+				是否包含fieldError―――――――――――――――――――――――――――――――――――――――――――-﹁
+					|							 |
+					|否							 |
+					|						         |
+					v							 v
+				调用Action处理方法―――――――――――――――――――――――――――――――――――――>呈现视图资源
+												 |
+												 |
+												 |
+												 v
+												 ●
+															
+																					
+																

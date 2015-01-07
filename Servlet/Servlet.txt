@@ -1,0 +1,213 @@
+Servlet必须继承HttpServlet
+
+不用为Servlet类编写构造器,如果需要对Servlet执行初始化操作,应将初始化操作放在Servlet的init（）方法中定义.如果重写了init(ServletConfig config)
+方法,则应在重写该方法的第一行调用super.init(config)，该方法将调用HttpServlet的init方法
+
+service()方法用于生成对客户端的响应
+
+**************************************************************/
+
+配置Servlet:
+	Annotation:		（不要在web.xml文件的根元素（<web-app../>）中指定metadata-complete="true",不要在web.xml中配置该servlet）
+		@WebServlet(name="firstServlet"
+				,urlPatterns={"/firstServlet"})
+		可指定如下常用属性:
+			asyncSupported:指定该servlet是否支持异步操作模式
+			displayName:指定servlet显示名
+			initParams:配置参数
+			loadOnStartup:用于将该servlet配置成load-on-startup
+			name:该servlet的名称
+			urlPatterns/value:指定该servlet处理的URL
+	web.xml:
+		<servlet>
+			<!-- 指定Servlet的名字，
+				相当于指定@WebServlet的name属性 -->
+			<servlet-name>firstServlet</servlet-name>
+			<!-- 指定Servlet的实现类 -->
+			<servlet-class>lee.FirstServlet</servlet-class>
+		</servlet>
+			<!-- 配置Servlet的URL -->
+		<servlet-mapping>
+			<!-- 指定Servlet的名字 -->
+			<servlet-name>firstServlet</servlet-name>
+			<!-- 指定Servlet映射的URL地址，
+				相当于指定@WebServlet的urlPatterns属性-->
+			<url-pattern>/aa</url-pattern>
+		</servlet-mapping>
+
+**************************************************************/
+
+JSP/Servlet的生命周期:
+	创建Servlet的时机:
+		>客户端第一次请求某个Servlet,系统创建该servlet
+		>Web应用启动时立即创建Servlet实例,即load-on-startup Servlet
+
+		
+	servlet的生命周期:
+		
+		
+			————>创建实例成功——————>完成初始化
+					   init()	|
+							v
+						响应客户端请求
+							|
+							|destroy()
+							|
+							v
+						资源回收完成————>实例销毁————>
+
+
+**************************************************************/
+
+load-on-startup:	(通常用于某些后台服务的servlet,或者拦截很多请求的Servlet)
+		配置:
+			>@WebServlet(loadOnStartup=1)(这个整型值,这个值越小,servlet就越先实例化)
+			>在web.xml文件中通过<servlet../>元素的<load-on-startup../>的子元素进行配置
+				<servlet>
+					...
+					<load-on-startup>1</load-on-startup>
+				</servlet>
+
+**************************************************************/
+
+Servlet的配置参数:
+	为servlet配置参数有两种方式:
+		>@WebServlet(name="testServlet"
+			, urlPatterns={"/testServlet"}
+			, initParams={
+				@WebInitParam(name="driver", value="com.mysql.jdbc.Driver"),
+				@WebInitParam(name="url", value="jdbc:mysql://localhost:3306/javaee"),
+				@WebInitParam(name="user", value="root"),
+				@WebInitParam(name="pass", value="32147")})
+		><servlet>
+			<!-- 配置Servlet名 -->
+			<servlet-name>testServlet</servlet-name>
+			<!-- 指定Servlet的实现类 -->
+			<servlet-class>lee.TestServlet</servlet-class>
+			<!-- 配置Servlet的初始化参数：driver -->
+			<init-param>
+				<param-name>driver</param-name>
+				<param-value>com.mysql.jdbc.Driver</param-value>
+			</init-param>
+			<!-- 配置Servlet的初始化参数：url -->
+			<init-param>
+				<param-name>url</param-name>
+				<param-value>jdbc:mysql://localhost:3306/javaee</param-value>
+			</init-param>
+			<!-- 配置Servlet的初始化参数：user -->
+			<init-param>
+				<param-name>user</param-name>
+				<param-value>root</param-value>
+			</init-param>
+			<!-- 配置Servlet的初始化参数：pass -->
+			<init-param>
+				<param-name>pass</param-name>
+				<param-value>32147</param-value>
+			</init-param>
+		</servlet>
+**************************************************************/
+
+Servlet3.0新特性:
+	Annotation:	(在javax.servlet.annotation)
+		>@WebServlet:	用于修饰Servlet,用于部署Servlet
+		>@WebInitParam: 用于@WebServlet或@WebFilter一起使用,为Servlet、Filter配置参数
+		>@WebListener:  用于修饰Listener类,用于部署Listener
+		>@WebFilter:    用于修饰Filter,用于部署Filter
+		>@MultipartConfig: 用于修饰Servlet将会负责处理multipart/form-data类型的请求（主要用于文件长传）
+		>@ServletSecurity: 这是一个与JAAS有关的Annotation,指定该Servlet的安全与授权控制
+		>@HttpConstraint: 用于与@ServletSecurity一起使用,用于指定该Servlet的安全授权控制
+		>@HttpMethodConstraint: 用于与@ServletSecurity一起使用,用于指定该Servlet的安全与授权控制
+
+	Web模块支持:	（不再要求所有Web组件（如Servlet、Listener、Filter等）都部署在web.xml中,而是采用"Web模块"来部署）
+		一个Web模块通常对应一个jar包,这个jar包结构如下:
+			<webModule>.jar————这是web模块的jar包,可以改变
+			|——META-INF			
+				|——web-fragment.xml				（web模块与普通jar包的最大区别在于META-INF目录下需要一个web-fragment.xml,这个文件成为Web模块部署描述符）
+			|——Web模块所用的类文件、资源文件等
+			
+		web-fragment.xml文件与web.xml基本相似,但web-fragment.xml可以多指定如下两个元素:
+			-<name../>:用于指定该Web模块的名称
+			-<ordering.../>:指定加载Web模块的相对顺序
+				>><ordering../>内部结构:
+					
+									   |javaee:name
+							   |javaee:after---
+							   |		   |javaee:others	
+							   |
+					orderingType-------|		   |javaee:name
+							   |javaee:before--
+									   |javaee:others
+
+			(也可以在web.xml中指定加载顺序:	(web.xml中指定加载属性将会覆盖web-fragment.xml)
+				<absolute-ordering>
+					<name>lisi</name>
+					<name>wangwu</name>
+				</absolute-ordering>
+			)
+		将这些模块打包成jar包复制到任意web应用WEB-INF/lib目录下即可
+			
+	异步处理:
+	改进的ServletAPI:
+		主要改进:
+			1. HttpServletRequest增加了对文件上传的支持
+				>>提供了如下两个方法处理文件上传:
+					(1)Part getPart(String name):根据名称来获取文件上传域
+					(2)Collection<Part> getParts():获取所有文件上传域
+				>>Part对象对应于文件上传域,该对象提供了大量方法来访问文件类型、大小、输入流,write(String file)将上传文件写入服务器
+				>>在表单里使用<input type="file"../>代表文件域
+				>>一定要为表单域设置enctype属性指定表单数据编码方式,该属性有如下值:
+					(1)application/x-www-form-urlencoded:这是默认值,只处理value属性值,会将表单域的值处理成URL编码方式
+					(2)multipart/form-data:以二进制方式处理表单数据,会使文件域指定文件内容也封装到请求参数里
+					(3)text/plain:这种方式当表单action属性为mailto:URL的形式时比较方便,主要适用于通过表单发送邮件的方式
+				>>如果enctype设置为application/x-www-form-urlencoded或不设置enctype,提交表单时只发送文件域文本框里的字符串
+				>>传统的文件上传需要借助于common-fileupload等工具,Servlet3.0则非常简单
+				例:
+				
+					<form method="post" action="upload"  enctype="multipart/form-data">
+						文件名：<input type="text" id="name" name="name" /><br/>
+						选择文件：<input type="file" id="file" name="file" /><br/>
+						<input type="submit" value="上传" /><br/>
+					</form>
+
+					@WebServlet(name="upload" , urlPatterns={"/upload"})
+					@MultipartConfig
+					public class UploadServlet extends HttpServlet
+					{
+						public void service(HttpServletRequest request , 
+							HttpServletResponse response)
+							throws IOException , ServletException
+						{
+							response.setContentType("text/html;charset=GBK");
+							PrintWriter out = response.getWriter(); 
+							//获取普通请求参数
+							String fileName = request.getParameter("name");
+							//获取文件上传域
+							Part part = request.getPart("file");
+							//获取上传文件的文件类型
+							out.println("上传文件的的类型为："
+								+ part.getContentType() + "<br/>");
+							//获取上传文件的大小。
+							out.println("上传文件的的大小为："
+								+ part.getSize()  + "<br/>");
+							//获取该文件上传域的Header Name
+							Collection<String> headerNames = part.getHeaderNames();
+							//遍历文件上传域的Header Name、Value
+							for (String headerName : headerNames)
+							{
+								out.println(headerName + "--->"
+									+ part.getHeader(headerName) + "<br/>");
+							}
+							//将上传的文件写入服务器
+							part.write(getServletContext().getRealPath("/uploadFiles")
+								+ "/" + fileName );
+						}
+					}
+
+				>上例中将上传文件写入了Web应用根目录下的uploadFiles目录下
+				>>为了使上传到服务器的文件名不同,应使用java.util.UUID工具处理
+			
+			2.ServletContext运行通过编程方式动态注册Servlet、Filter,动态设置Web应用初始化参数
+				(1).多个重载的addServlet:动态注册Servlet
+				(2).多个重载的addFilter:动态注册Filter
+				(3).多个重载的addListener:动态注册Listener
+				(4).setInitParameter(String name , String value):为Web应用设置初始化参数

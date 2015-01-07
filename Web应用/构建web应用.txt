@@ -1,0 +1,50 @@
+构建web应用:
+		"徒手"建立一个web应用:
+			>在任意目录下新建一个文件夹,这里以webDemo文件夹建立
+			>在webDemo文件夹内建一个WEB-INF文件夹(这里区分大小写)
+			>进入Tomcat或任何其他Web容器内,找到任何一个web应用,将该web应用内WEB-INF文件夹内web.xml文件复制到刚才所建WEB-INF文件夹内
+				(对于大部分web容器,实例web应用在webapps路径下)
+			>将复制后的web.xml文件修改成只剩根元素,如:		（对于servlet3.0规范,web.xml文件不再是必须的）
+			web.xml:
+				<?xml version="1.0" encoding="GBK"?>
+				<web-app xmlns="http://java.sun.com/xml/ns/javaee"
+					xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+					xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
+					http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" version="3.0">
+						
+				</web-app>
+
+
+			>web应用结构:
+				<webDemo>————web应用名称,可以改变
+				|——WEB-INF
+					|——classes
+					|——lib
+					|——web.xml
+				|——<a.jsp>——这里可以存放任意多个JSP页面
+			
+			>a.jsp:
+				<%@ page contentType="text/html; charset=GBK" language="java" errorPage="" %>
+				<html>
+				<head>
+					<title>欢迎</title>
+				</head>
+				<body>
+				欢迎学习Java Web知识
+				</body>
+				</html>
+
+			>将webDemo文件夹移动到tomcat内webapps路径下
+			>wenDemo应用已经部署到tomcat
+
+
+				
+		web.xml的配置:		(客户端浏览器无法访问WEB-INF路径下的任何内容)
+				>metadata-complete(该属性接收true和false两个属性值,当为true时不会加载Annotation配置的组件（如Servlet、Filter、Listener）)
+				><welcome-file-list>	(配置首页)
+					<welcome-file>index.html</welcome-file>
+					<welcome-file>index.htm</welcome-file>
+					<welcome-file>index.jsp</welcome-file>
+				 </welcome-file-list>
+
+				

@@ -1,0 +1,205 @@
+基本元素:
+		<!-- -->:注释
+		<html>:
+		<head>:
+		<title>:
+		<body>:
+		<style>:
+		<h1>~<h6>:
+		<p>:
+		<hr>:
+		<br>:
+		<div>:
+		<span>:
+		<link>:链接外部CSS样式
+
+		
+文本:
+		<b>:定义粗体文本
+		<i>:定义斜体文本
+		<em>:定义强调文本
+		<strong>:定义粗体文本
+		<small>:定义小号字体
+		<sup>:定义上标文本
+		<sub>:定义下标文本
+		<bdo>:定义文本方向,属性值只能是ltr或rtl
+
+语意:
+		
+		<abbr>:	表示一个缩写,title指定全称
+		<address>:表示一个地址
+		<blockquote>: 定义一段长的引用文本,cite属性指定文本所引用的URL
+		<q>: 定义一段短的引用文本,浏览器会为这段引用文本添加引号
+		<cite>:用于表示作品
+		<code>:表示一段计算机代码
+		<dfn>:定义一个专业术语,浏览器会以粗体或斜体字显示<dfn../>所包含的文本
+		<del>:定义被删除的文本,会以中划线显示文本
+		<ins>:定义插入的文本,以下划线显示文本
+			cite:该属性值为URL,解释了文本删除或插入的原因
+			datetime:定义文本被插入或删除的时间
+		<pre>:元素所包含的空格、回车、Tab都会被保留下来,但其中的HTML元素会被处理
+		<samp>:定义示范文本内容
+		<kbd>:定义键盘文本
+		<var>:表示一个变量
+		<mark>:重点关注内容,黄色标注
+		<time>:
+			datetime:
+
+超链接和锚点:
+		
+		<a../>: 
+			>herf:指定超链接所关联的另一个资源
+			>target:_self、_blank、_top、_parent、分别代表自身、新窗口、顶层、父框架
+			>media:目标URL所引用的媒体类型
+
+		锚点:
+			<a name="test"></a>
+			<a href="anchor.html#test">定位到test锚点</a>
+
+
+列表:
+		
+		<ul>:只能包含<li>子元素
+		<ol>:只能包含<li>子元素
+			>start:指定列表项起始数字1,A。。
+			>type:编号类型
+		
+		<li>:列表项目
+		<dl>:只能包含<dt>和<dd>两种子元素
+		<dt>:
+		<dd>:
+
+
+图像:
+		<img../>:
+			>src:图片路径
+			>alt:指定一段文本,该文本将作为该图片的提示信息
+			>width:
+			>height:
+		<map>:包含一个或多个<area../>子元素,每个<area../>定义一片区域,不同区域链接到不同URL
+		<area>:只可以是空元素
+			>shape:指定该区域是哪种区域,默认值是:rect,还可以是<circle><ploy>
+			>coords:指定多个坐标值,用于确定区域位置
+			>href:指定该区域所链接资源
+			>alt:指定一段文本,该文本将作为该图片的提示信息
+			>target:_self,_blank,_top,_parent
+			>media:指定目标URL所引用的媒体类型
+
+表格:		<table>:
+			子元素:
+			<caption../>:表格标题
+			<thead../>:表格头
+			<tfoot../>:表格脚
+			<tr../>:行
+			<tobdy..>:表格体
+			<td>:可以指定属性:colspan:跨多少列,rowspan:跨多少行,height:,width:
+			<th>:
+			<colgroup>:为一列或多列指定属性
+			<col>:为一列或多列指定属性
+			属性:
+			cellpadding:内容和边框间距
+			cellspacing:单元格间距
+			width:表格宽度
+
+
+框架:
+		<iframe>:
+			src:指定该iframe装载那个页面
+
+		
+HTML5新增通用属性:
+			contentEditable:如果设为true,可使table、div等元素变为可编辑状态
+			designMode:如果把整个页面的designMode设为on,则该页面所有可支持contentEditable属性的元素都变为可编辑状态
+			hidden:如果某组件hidden属性设为true,则浏览器不显示该组件
+
+
+文档结构:
+		<article>:
+			<header>:标题
+			<footer>:脚注
+			<section>:把文字分为几个段落
+			<article>:作为附属文章
+		<section>:
+			<article>:分为多篇文章
+			<section>:子分块
+			<nav>:导航条
+			<aside>:文章的附属信息
+			<figure>:表示一片独立图片区域
+			<figcaption>:图片区域标题
+
+计数仪表:
+		<meter>:
+			value:
+			min:
+			max:
+			low:
+			high:
+			optimum:(有效范围最佳值)
+		<progress>:
+			max:
+			value:
+
+表单:
+		<form../>:
+			action:
+			method:
+				get
+				post
+			enctype:
+				application/x-www-form-urlencoded:
+				multipart/form-data:
+				text/plain:
+			name:
+			target:
+				_blank,_self,_top,_parent
+
+		<input../>
+			type:
+				text:
+				password:
+				hidden:
+				radio:
+				checkbox:
+				image:
+				file:
+				submit:
+				reset:
+				button:
+			maxlength:
+			readonly:
+			size:
+			src:
+
+		<label../>:
+			for:
+		
+		<button../>:
+			disbaled:
+			name:
+			type:
+			value:
+			value:
+
+列表框和下拉菜单:
+		
+		<select../>:
+			disabled:
+			multiple:
+			size:
+			<option>:
+				disabled:
+				selected:
+				value:
+			<optgroup>:
+				label:
+				disabled:
+
+多媒体:
+	<video../>:
+	<audio../>:
+		src:
+		controls:
+		<source../>:
+			src:
+			type:
+	

@@ -1,0 +1,425 @@
+Struts2控制文件上传:
+	注意:
+		1.为了文件上传,必须将表单域的method属性设置为POST,将enctype设置为multipart/form-data,这样浏览器才会将用户选择文件的二进制数据发送给服务器
+		2.Struts2没来得及使用Servlet3.0API,因此Strut2的文件上传还需要依赖于Common-FileUpLoad、COS等文件上传组件
+		3.Struts2默认使用Common-fileupload文件上传框架,因此需要将commons-io-*.*.*.jar和common-fileupload-*.*.*.jar复制到WEB-INF/lib路径下
+		4.使用哪种文件上传支持,只需修改struts.multipart.parser常量并在web应用中上传相应类库即可
+		5.Struts2的Action无需处理HttpServletRequest,Struts2的Action与ServletAPI彻底分离了,Struts2框架负责解析HttpServletRequest请求参数
+		
+	上传表单:
+		<s:form action="uploadPro"
+			enctype="multipart/form-data">
+			<s:textfield name="title" label="文件标题"/><br />
+			<s:file name="upload" label="选择文件"/><br />
+			<s:submit value="上传"/>
+		</s:form>
+	实现文件上传的Action:
+		public class UploadAction extends ActionSupport
+		{
+			//封装文件标题请求参数的属性
+			private String title;
+			//封装上传文件域的属性
+			private File upload;
+			//封装上传文件类型的属性
+			private String uploadContentType;
+			//封装上传文件名的属性
+			private String uploadFileName;
+			//直接在struts.xml文件中配置的属性
+			private String savePath;
+			//接受struts.xml文件配置值的方法
+			public void setSavePath(String value)
+			{
+				this.savePath = value;
+			}
+			//返回上传文件的保存位置
+			private String getSavePath() throws Exception 
+			{
+				return ServletActionContext.getServletContext()
+					.getRealPath(savePath);
+			}
+
+			//文件标题的setter和getter方法
+			public void setTitle(String title) 
+			{
+				this.title = title; 
+			}
+			public String getTitle()
+			{
+				return (this.title); 
+			}
+
+			//上传文件对应文件内容的setter和getter方法
+			public void setUpload(File upload) 
+			{
+				this.upload = upload; 
+			}
+			public File getUpload() 
+			{
+				return (this.upload); 
+			}
+
+			//上传文件的文件类型的setter和getter方法
+			public void setUploadContentType(String uploadContentType) 
+			{
+				this.uploadContentType = uploadContentType; 
+			}
+			public String getUploadContentType()
+			{
+				return (this.uploadContentType); 
+			}
+
+			//上传文件的文件名的setter和getter方法
+			public void setUploadFileName(String uploadFileName) 
+			{
+				this.uploadFileName = uploadFileName; 
+			}
+			public String getUploadFileName() 
+			{
+				return (this.uploadFileName); 
+			}
+			
+			@Override
+			public String execute() throws Exception
+			{
+				//以服务器的文件保存地址和原文件名建立上传文件输出流
+				FileOutputStream fos = new FileOutputStream(getSavePath()
+					+ "\\" + getUploadFileName());
+				FileInputStream fis = new FileInputStream(getUpload());
+				byte[] buffer = new byte[1024];
+				int len = 0;
+				while ((len = fis.read(buffer)) > 0)
+				{
+					fos.write(buffer , 0 , len);
+				}
+				fos.close();
+				return SUCCESS;
+			}
+		}
+	
+		注意:
+			如果表单中包含一个name属性为xxx的文件域,则对应Action需要使用三个属性来封装该文件的信息:
+			1.类型为File的xxx属性封装了该文件域对应的内容
+			2.类型为xxxFileName属性封装了该文件域对应文件的文件名
+			3.类型为xxxContentType属性封装了该文件域对应文件的文件类型
+			上面Action还包含了一个savePath属性,该属性可通过配置文件来设置,从而允许动态设置该属性值
+	配置文件上传的Action:
+			<package name="lee" extends="struts-default">
+			<!-- 配置处理文件上传的Action -->
+			<action name="uploadPro" class="org.crazyit.app.action.UploadAction">
+				<!-- 动态设置Action的属性值 -->
+				<param name="savePath">/uploadFiles</param>
+				<!-- 配置Struts 2默认的视图页面 -->
+				<result>/WEB-INF/content/succ.jsp</result>	
+			</action>
+		注意:
+			1.对上传文件使用java.util.UUID工具来使其文件名唯一
+			2.Struts2实现文件上传的编程关键,就是使用了三个属性来封装文件域,其中一个封装该文件文件名,一个封装文件类型,一个封装文件内容
+
+	过滤上传的文件:
+		手动实现文件过滤:	（通过获取文件大小、类型来过滤）
+			步骤:
+				1.在Action中定义一个过滤的方法
+				2.为了在struts.xml中配置允许的大小或类型,应在Action中定义一个相应属性并提供setter、getter方法
+				3.利用Struts2的输入校验来判断用户输入是否符合要求,为Action提供validate方法,校验失败时将提示信息添加到FieldError中返回input逻辑视图
+			
+			例:
+				public class UploadAction extends ActionSupport
+				{
+					//封装文件标题请求参数的属性
+					private String title;
+					//封装上传文件域的属性
+					private File upload;
+					//封装上传文件类型的属性
+					private String uploadContentType;
+					//封装上传文件名的属性
+					private String uploadFileName;
+					//直接在struts.xml文件中配置的属性
+					private String savePath;
+					//定义该Action允许上传的文件类型
+					private String allowTypes;
+					//allowTypes属性的setter和getter方法
+					public String getAllowTypes()
+					{
+						return allowTypes;
+					}
+					public void setAllowTypes(String allowTypes)
+					{
+						this.allowTypes = allowTypes;
+					}
+
+					//接受struts.xml文件配置值的方法
+					public void setSavePath(String value)
+					{
+						this.savePath = value;
+					}
+					//返回上传文件的保存位置
+					private String getSavePath() throws Exception 
+					{
+						return ServletActionContext.getServletContext()
+							.getRealPath(savePath);
+					}
+
+					//文件标题的setter和getter方法
+					public void setTitle(String title) 
+					{
+						this.title = title; 
+					}
+					public String getTitle()
+					{
+						return (this.title); 
+					}
+
+					//上传文件对应文件内容的setter和getter方法
+					public void setUpload(File upload) 
+					{
+						this.upload = upload; 
+					}
+					public File getUpload() 
+					{
+						return (this.upload); 
+					}
+
+					//上传文件的文件类型的setter和getter方法
+					public void setUploadContentType(String uploadContentType) 
+					{
+						this.uploadContentType = uploadContentType; 
+					}
+					public String getUploadContentType()
+					{
+						return (this.uploadContentType); 
+					}
+
+					//上传文件的文件名的setter和getter方法
+					public void setUploadFileName(String uploadFileName) 
+					{
+						this.uploadFileName = uploadFileName; 
+					}
+					public String getUploadFileName() 
+					{
+						return (this.uploadFileName); 
+					}
+					
+					@Override
+					public String execute() throws Exception
+					{
+						//以服务器的文件保存地址和原文件名建立上传文件输出流
+						FileOutputStream fos = new FileOutputStream(getSavePath()
+							+ "\\" + getUploadFileName());
+						FileInputStream fis = new FileInputStream(getUpload());
+						byte[] buffer = new byte[1024];
+						int len = 0;
+						while ((len = fis.read(buffer)) > 0)
+						{
+							fos.write(buffer , 0 , len);
+						}
+						fos.close();
+						return SUCCESS;
+					}
+
+					/**
+					 * 过滤文件类型
+					 * @param types 系统所有允许上传的文件类型
+					 * @return 如果上传文件的文件类型允许上传，
+					 *		 返回null，否则返回error字符串
+					 */
+					public String filterTypes(String[] types)
+					{
+						//获取希望上传的文件类型
+						String fileType = getUploadContentType();
+						for (String type : types)
+						{
+							if (type.equals(fileType))
+							{
+								return null;
+							}
+						}
+						return ERROR;
+					}
+
+					//执行输入校验
+					public void validate()
+					{
+						//将允许上传文件类型的字符串以英文逗号（,）
+						//分解成字符串数组从而判断当前文件类型是否允许上传
+						String filterResult = filterType(getAllowTypes().split(","));
+						//如果当前文件类型不允许上传
+						if (filterResult != null)
+						{
+							//添加FieldError
+							addFieldError("upload" , "您要上传的文件类型不正确！");
+						}
+					}
+				}
+				
+				<action name="uploadPro" class="org.crazyit.app.action.UploadAction">
+					<!-- 动态设置Action的属性值 -->
+					<param name="savePath">/uploadFiles</param>
+					<!-- 设置允许上传的文件类型 -->
+					<param name="allowTypes">image/png,image/gif,image/jpeg</param>
+					<result name="input">/WEB-INF/content/upload.jsp</result>	
+					<!-- 配置Struts 2默认的视图页面 -->
+					<result>/WEB-INF/content/succ.jsp</result>	
+				</action>
+				
+				(上例是根据文件类型过滤,如果想根据文件大小顾虑可通过File的length判断)
+		
+		拦截器实现文件过滤:	(Struts2提供了文件上传的拦截器,通过配置该拦截器可轻松实现文件过滤)
+			配置该拦截器,可指定两参数:
+				allowedTypes:指定允许上传的文件类型,文件类型之间以英文（,）隔开
+				maximumSize:指定允许上传的文件大小
+			注意:
+				1.当上文件过滤失败后,系统自动转入input逻辑视图,所以配置该Action时必须配置名为input的逻辑视图
+				2.必须显式为该Action配置defaultStack拦截器引用,而且fileUpload拦截器必须配置在defaultStack拦截器之前
+			例:
+				<package name="lee" extends="struts-default">
+					<!-- 配置处理文件上传的Action -->
+					<action name="uploadPro" class="org.crazyit.app.action.UploadAction">
+						<!-- 配置fileUpload的拦截器 -->
+						<interceptor-ref name="fileUpload">
+							<!-- 配置允许上传的文件类型 -->
+							<param name="allowedTypes">image/png
+								,image/gif,image/jpeg</param>
+							<!-- 配置允许上传的文件大小 -->
+							<param name="maximumSize">2000</param> 
+						</interceptor-ref> 
+						<!-- 配置系统默认的拦截器 -->
+						<interceptor-ref name="defaultStack"/>
+						<!-- 动态设置Action的属性值 -->
+						<param name="savePath">/uploadFiles</param>
+						<!-- 配置Struts 2默认的视图页面 -->
+						<result>/WEB-INF/content/succ.jsp</result>
+						<result name="input">/WEB-INF/content/upload.jsp</result>
+					</action>
+				</package>
+	
+		输出错误提示:
+			显示上传失败提示信息有如下方式:
+				1.使用Struts2的标签
+				2.<s:fielderror/>
+			提示信息的国家化:	(在国家化资源文件中增加如下key消息)
+				文件太大:struts.messages.error.file.too.large
+				文件类型:struts.messages.error.content.type.not.allowed
+				未知错误:struts.messages.error.uploading
+				例:
+					struts.messages.error.file.too.large=您上传文件太大!
+					struts.message.error.content.type.not.allowed=您上传文件只能是图片文件!
+	文件上传的常量配置:	（可通过struts.xml配置）
+			设置长传过程中的临时文件路径:struts.multipart.saveDir
+			设置整个表单请求内容的最大字节数:struts.multipart.maxSize
+
+
+***************************************************************************************************/
+
+使用Struts2控制文件下载:
+	实现文件下载方式:
+		1.直接在页面给出一个超级链接,该链接的href属性等于要下载文件的文件名
+			>>这种方式有两个特点:
+				(1)文件名不能为中文
+				(2)无法对用户权限控制
+		2.Struts2控制下载:	(会解决以上两个制约)
+			例:
+				public class FileDownloadAction
+					extends ActionSupport 
+				{
+					//该属性可以在配置文件中动态指定该属性值
+					private String inputPath;
+					//依赖注入该属性值的setter方法
+					public void setInputPath(String value)
+					{
+						inputPath = value;
+					}
+					/*
+					定义一个返回InputStream的方法，
+					该方法将作为被下载文件的入口，
+					且需要配置stream类型结果时指定inputName参数，
+					inputName参数的值就是方法去掉get前缀、首字母小写的字符串
+					*/
+					public InputStream getTargetFile() throws Exception 
+					{
+						//ServletContext提供getResourceAsStream()方法
+						//返回指定文件对应的输入流 
+						return ServletActionContext.getServletContext()
+							.getResourceAsStream(inputPath);
+					}
+				}
+			注意:
+				1.Action中需要提供一个返回InputStream流的方法,该输入流代表了被下载文件的接口
+				2.以上Action中提供返回InputStream流的方法名为getTargetFile,则stream类型的结果映射中inputStream参数值为targetFile
+				3.配置文件下载Action时配置一个类型为stream的结果,需指定4个属性:
+					(1)contentType:被下载文件类型
+					(2)inputStream:被下载文件入口输入流
+					(3)contentDisposition:下载的文件名
+					(4)bufferSize:下载文件时的缓冲大小
+				4.配置stream类型结果时,无需指定显示视图资源,所以无需指定location属性
+
+				<package name="lee" extends="struts-default">
+					<action name="download" class="org.crazyit.app.action.FileDownloadAction">
+					<!-- 指定被下载资源的位置 -->
+						<param name="inputPath">\images\疯狂联盟.jpg</param>
+						<!-- 配置结果类型为stream的结果 -->
+						<result name="success" type="stream">
+							<!-- 指定下载文件的文件类型 -->
+							<param name="contentType">image/jpg</param>
+							<!-- 指定由getTargetFile()方法返回被下载文件的InputStream -->
+							<param name="inputName">targetFile</param>
+							<param name="contentDisposition">filename="wjc_logo.jpg"</param>
+							<!-- 指定下载文件的缓冲大小 -->
+							<param name="bufferSize">4096</param>
+						</result>
+					</action>
+				</package>
+
+			下载前的授权控制:	(在下载之前先通过Action来检查用户是否有权限下载该文件,来实现授权控制)
+				例:
+					public class AuthorityDownAction
+						implements Action 
+					{
+						private String inputPath;
+						public void setInputPath(String value)
+						{
+							inputPath = value;
+						}
+						
+						public InputStream getTargetFile() throws Exception 
+						{
+							//ServletContext提供getResourceAsStream()方法
+							//返回指定文件对应的输入流 
+							return ServletActionContext.getServletContext()
+								.getResourceAsStream(inputPath);
+						}
+						
+						public String execute() throws Exception
+						{
+							//取得ActionContext实例
+							ActionContext ctx = ActionContext.getContext();
+							//通过ActionContext访问用户的HttpSession
+							Map session = ctx.getSession();
+							String user = (String)session.get("user");
+							//判断Session里的user是否通过检查
+							if ( user !=  null && user.equals("crazyit.org"))
+							{
+								return SUCCESS;
+							}
+							ctx.put("tip"
+								, "您还没有登录，或者登录的用户名不正确，请重新登录！");
+							return LOGIN;
+						}
+					}
+
+					<action name="download2" class="org.crazyit.app.action.AuthorityDownAction">
+						<!-- 定义被下载文件的物理资源 -->
+						<param name="inputPath">\images\wjc_logo.zip</param>
+						<result name="success" type="stream">
+							<!-- 指定下载文件的文件类型 -->
+							<param name="contentType">application/zip</param>
+							<!-- 指定由getTargetFile()方法返回被下载文件的InputStream -->
+							<param name="inputName">targetFile</param>
+							<param name="contentDisposition">filename="wjc_logo.zip"</param>
+							<!-- 指定下载文件的缓冲大小 -->
+							<param name="bufferSize">4096</param>
+						</result>
+						<!-- 定义一个名为login的结果 -->
+						 <result name="login">/WEB-INF/content/login.jsp</result>
+					</action>
+
+														

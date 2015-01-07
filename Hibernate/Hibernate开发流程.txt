@@ -1,0 +1,140 @@
+Hibernate开发流程:
+	1.下载Hibernate Jar包,将相关jar包复制到Web应用WEB-INF/lib路径下
+	2.创建POJO类:	(只是一个普通Java类)
+			public class News
+			{
+				//消息类的标识属性
+				private Integer id;
+				//消息标题
+				private String title;
+				//消息内容
+				private String content;
+				
+				//id属性的setter和getter方法
+				public void setId(Integer id)
+				{
+					this.id = id;
+				}
+				public Integer getId()
+				{
+					return this.id;
+				}
+				
+				//title属性的setter和getter方法
+				public void setTitle(String title)
+				{
+					this.title = title;
+				}
+				public String getTitle()
+				{
+					return this.title;
+				}
+				
+				//content属性的setter和getter方法
+				public void setContent(String content)
+				{
+					this.content = content;
+				}
+				public String getContent()
+				{
+					return this.content;
+				}
+			}
+	3.映射文件:	(与持久化类在同一路径下,既可使用xml也可使用properties)
+		News.hbm.xml:
+			<?xml version="1.0" encoding="gb2312"?>
+			<!-- 指定Hiberante3映射文件的DTD信息 -->
+			<!DOCTYPE hibernate-mapping PUBLIC 
+				"-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+				"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+			<!-- hibernate-mapping是映射文件的根元素 -->
+			<hibernate-mapping package="org.crazyit.app.domain">
+				<!-- 每个class元素对应一个持久化对象 -->
+				<class name="News" table="news_table">
+					<!-- id元素定义持久化类的标识属性 -->
+					<id name="id">
+						<!-- 指定主键生成策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- property元素定义常规属性 -->
+					<property name="title"/>
+					<property name="content"/>
+				</class>
+			</hibernate-mapping>
+	4.Hibernate配置文件:	(在类加载路径下,当调用Configuration对象的configure()方法时,Hibernate自动加载该文件
+				 Hibernate推荐使用c3p0数据源,使用sfl4j作为日志工具,所以要把数据库驱动、slf4j jar包、c3p0数据源jar包导入)
+		hibernate.cfg.xml:
+			<?xml version="1.0" encoding="GBK"?>
+			<!-- 指定Hibernate配置文件的DTD信息 -->
+			<!DOCTYPE hibernate-configuration PUBLIC
+				"-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+				"http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+			<!-- hibernate- configuration是连接配置文件的根元素 -->
+			<hibernate-configuration>
+				<session-factory>
+					<!-- 指定连接数据库所用的驱动 -->
+					<property name="connection.driver_class">com.mysql.jdbc.Driver</property>
+					<!-- 指定连接数据库的url，hibernate连接的数据库名 -->
+					<property name="connection.url">jdbc:mysql://localhost/hibernate</property>
+					<!-- 指定连接数据库的用户名 -->
+					<property name="connection.username">root</property>
+					<!-- 指定连接数据库的密码 -->
+					<property name="connection.password">MYSQLADMIN</property>
+					<!-- 指定连接池里最大连接数 -->
+					<property name="hibernate.c3p0.max_size">20</property>
+					<!-- 指定连接池里最小连接数 -->
+					<property name="hibernate.c3p0.min_size">1</property>
+					<!-- 指定连接池里连接的超时时长 -->
+					<property name="hibernate.c3p0.timeout">5000</property>
+					<!-- 指定连接池里最大缓存多少个Statement对象 -->
+					<property name="hibernate.c3p0.max_statements">100</property>
+					<property name="hibernate.c3p0.idle_test_period">3000</property>
+					<property name="hibernate.c3p0.acquire_increment">2</property>
+					<property name="hibernate.c3p0.validate">true</property>
+					<!-- 指定数据库方言 -->
+					<property name="dialect">org.hibernate.dialect.MySQLInnoDBDialect</property>
+					<!-- 根据需要自动创建数据表 -->
+					<property name="hbm2ddl.auto">update</property>
+					<!-- 显示Hibernate持久化操作所生成的SQL -->
+					<property name="show_sql">true</property>
+					<!-- 将SQL脚本进行格式化后再输出 -->
+					<property name="hibernate.format_sql">true</property>
+					<!-- 罗列所有的映射文件 -->
+					<mapping resource="org/crazyit/app/domain/News.hbm.xml"/>
+				</session-factory>
+			</hibernate-configuration>
+	5.操作数据库:
+			public class NewsManager
+			{
+				public static void main(String[] args)
+					throws Exception
+				{
+					//实例化Configuration，
+					Configuration conf = new Configuration()
+					//下面方法默认加载hibernate.cfg.xml文件
+						.configure();
+					//以Configuration创建SessionFactory
+					SessionFactory sf = conf.buildSessionFactory();
+					//创建Session
+					Session sess = sf.openSession();
+					//开始事务
+					Transaction tx = sess.beginTransaction();
+					//创建消息实例
+					News n = new News();
+					//设置消息标题和消息内容
+					n.setTitle("疯狂Java联盟成立了");
+					n.setContent("疯狂Java联盟成立了，"
+						+ "网站地址http://www.crazyit.org");
+					//保存消息
+					sess.save(n);
+					//提交事务
+					tx.commit();
+					//关闭Session
+					sess.close();
+					sf.close();
+				}
+			}
+
+						
+
+							

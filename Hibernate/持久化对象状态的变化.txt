@@ -1,0 +1,70 @@
+持久化对象:
+	持久化对象的状态:
+		1.瞬态:	由new操作法符创建,尚未与Hibernate Session关联,使用Hibernate Session可以将其变为持久化状态
+		2.持久化:在数据库中有对应记录,与Hibernate Session关联,Hibernate会检测到处于持久化状态对象的改动,操作完成后会写入数据库,不需要手动UPDATE
+		3.脱管:曾经处于持久化状态,但与之对应的Session关闭,变为脱管状态。脱管对象引用依然有效,如果脱管对象重新与某个Session关联,这个
+		  脱管对象会重新回到持久化状态,脱管期间的改动也会被写入数据库,因为对象处于脱管状态时无需锁定数据库,所以不会造成性能下降
+
+
+						     new		垃圾回收
+		 持久化实例状态演化图:	●———————————————>瞬态-------------------╮	
+					   get()|		 |  ^			┃
+					  load()|	   save()|  |			┃
+					  find()|  saveOrUpdate()|  |delete()		┃
+						|		 v  |			┃
+						╰——————————————>持久化			┃
+								 |  ^			┃
+							  evict()|  |update()		┃
+							close()* |  |saveOrUpdate()	┃
+							clear()* |  |lock()		┃
+								 |  |			┃
+								 v  |			 v
+								 脱管------------------>●
+									  垃圾回收
+							
+						（当Session调用带*的方法时,所有与该Session关联的实例都将受到影响）
+	
+	改变持久化对象状态的方法:
+		瞬态对象转为持久化状态:	（底层会生成一条Insert语句）
+			1.Serializable save(Ojbect obj):将obj对象变为持久化状态,该对象的属性将被保存到数据库
+			2.void persist(Object obj):	将obj对象变为持久化状态,该对象的属性将被保存到数据库
+			3.Serializable save(Ojbect obj,Object pk):将obj对象保存到数据库,并指定主键值
+			4.void persist(Object obj,Object pk):	将obj对象保存到数据库,并指定主键值
+
+			注意:
+				1.如果News的标识属性是generated,那么Hibernate在执行save()方法时自动生成标识属性值,并将标识属性分配给属性值
+				2.如果News的标识属性时assigned或是复合主键,那么该标识属应在调用save()之前手动赋予New对象
+				3.save()会返回该持久化标识属性,persist()不会返回任何值
+	
+		加载持久化对象:		（底层会生成一条select语句）
+			1.load()
+			2.get()
+
+			注意:
+				1.没有匹配的数据记录,load()可能抛出HibernateException异常
+				2.如果类映射文件中指定了延迟加载,则load()方法会返回一个未初始化的代理对象(可以理解为持久化对象的替身)
+				  直到程序调用该代理对象的某个方法时,Hibernate才会去访问数据库
+				3.get()方法会立即访问数据库,如果没有数据记录,get()放回null
+				4.修改对象最简单的方法就是在Session处于打开状态时load它,直接修个即可
+					News n = sess.load(News.class , new Integer(pk));
+					n.setTitle("新标题");
+					sess.flush();
+
+		脱管对象持久化:
+			1.update()
+			2.updateOrSave()
+				
+					News n  = firstSess.load(News.class , new Integer(pk));
+					firstSess.close();
+					n.setTitle("新标题");
+					Session secondSess = ...
+					secondSess.update(n);
+		删除持久化实例:
+			1.delete()
+					
+					News n  = firstSess.load(News.class , new Integer(pk));
+					Session.delete(n);
+
+			注意:
+				1.Hibernate本身不提供直接执行update或delete的API,Hibernate提供的是一种面向对象的状态管理
+				 如果确实需要执行DML风格的update或delete类型语句,应使用Hibernate的批处理功能

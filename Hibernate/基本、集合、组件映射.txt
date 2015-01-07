@@ -1,0 +1,922 @@
+Hibernate的映射文件:
+	映射文件结构:
+		<hibernate-mapping>
+			<class../>
+			<class../>
+			....
+		</hibernate-mapping>
+	映射主键:
+		<class name="News" table="new_table">
+			<id name="id" column="news_id">
+				<generator class="identity"/>
+			</id>
+			<property../>
+			<property../>
+			....
+		</class>
+	映射普通属性:
+		<property name="fullContent" 
+			formula="(select concat(nt.title,nt.content)
+				from news_table nt where nt.id=id)"/>
+	映射集合属性:	(Hibernate默认为集合属性采取延时加载)
+		List:		(以关联对象的外键列和集合索引作为主键)
+				public class Person
+				{
+					...	
+					private List<String> schools = new ArrayList<String>();
+					//id属性的setter和getter方法
+					//name属性的setter和getter方法
+					//age属性的setter和getter方法
+					//schools属性的setter和getter方法
+					....
+					public void setSchools(List<String> schools)
+					{
+						this.schools = schools;
+					}
+					public List<String> getSchools()
+					{
+						return this.schools;
+					}
+				}
+			
+			Person.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="name" type="string"/>
+					<property name="age" type="int"/>
+					<!-- 映射List集合属性 -->
+					<list name="schools" table="school">
+						<!-- 映射集合属性数据表的外键列 -->
+						<key column="person_id" not-null="true"/>
+						<!-- 映射集合属性数据表的集合索引列 -->
+						<list-index column="list_order"/>
+						<!-- 映射保存集合元素的数据列 -->
+						<element type="string" column="school_name"/>
+					</list>
+				</class>
+		
+		数组:
+				public class Person
+				{
+					....
+					//数组属性，保留该对象关联的学校
+					private String[] schools;
+					....
+					//id属性的setter和getter方法
+					//name属性的setter和getter方法
+					//age属性的setter和getter方法
+					//schools属性的setter和getter方法
+				}
+			Person.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="name" type="string"/>
+					<property name="age" type="int"/>
+					<!-- 映射数组属性 -->
+					<array name="schools" table="school">
+						<!-- 映射数组属性数据表的外键列 -->
+						<key column="person_id" not-null="true"/>
+						<!-- 映射数组属性数据表的数组索引列 -->
+						<list-index column="list_order"/>
+						<!-- 映射保存数组元素的数据列 -->
+						<element type="string" column="school_name"/>
+					</array>
+				</class>
+		Set:		（如果<element../>有not-null="true",则以关联持久化的外键列和元素列作为主键否则,没有主键）
+				public class Person
+				{
+					....
+					private Set<String> schools = 
+						new HashSet<String>();
+					//id属性的setter和getter方法
+					//name属性的setter和getter方法
+					//age属性的setter和getter方法
+					//schools属性的setter和getter方法
+					....
+				}
+			Person.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="name" type="string"/>
+					<property name="age" type="int"/>
+					<!-- 映射Set集合属性 -->
+					<set name="schools" table="school">
+						<!-- 映射集合属性数据表的外键列 -->
+						<key column="person_id" not-null="true"/>
+						<!-- 映射保存集合元素的数据列,增加非空约束 -->
+						<element type="string" column="school_name"
+							not-null="true"/>
+					</set>
+				</class>
+		bag:	(可以映射List、Set、Collection,都被映射为无序集合,集合元素对应的表没有主键)
+				public class Person
+				{
+					....
+					private Collection<String> schools =
+							new ArrayList<String>();
+					//id属性的setter和getter方法
+					//name属性的setter和getter方法
+					//age属性的setter和getter方法
+					//schools属性的setter和getter方法
+					....
+				}
+
+			Peson.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="name" type="string"/>
+					<property name="age" type="int"/>
+					<!-- 使用bag元素映射集合属性 -->
+					<bag name="schools" table="school">
+						<!-- 映射集合属性数据表的外键列 -->
+						<key column="person_id" not-null="true"/>
+						<!-- 映射保存集合元素的数据列 -->
+						<element type="string" column="school_name"
+							not-null="true"/>
+					</bag>
+				</class>
+		Map:	(以外键列和key列作为联合主键)	
+				public class Person
+				{
+					....
+					private Map<String ,Float> scores
+						= new HashMap<String ,Float>();
+					
+					//id属性的setter和getter方法
+					//name属性的setter和getter方法
+					//age属性的setter和getter方法
+					//scores属性的setter和getter方法
+					....
+					public void setScores(Map<String ,Float> scores)
+					{
+						this.scores = scores;
+					}
+					public Map<String ,Float> getScores()
+					{
+						return this.scores;
+					}
+				}
+			Person.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="name" type="string"/>
+					<property name="age" type="int"/>
+					<!-- 映射Map集合属性 -->
+					<map name="scores" table="score">
+						<!-- 映射集合属性数据表的外键列 -->
+						<key column="person_id" not-null="true"/>
+						<!-- 映射集合属性数据表的Map key列 -->
+						<map-key column="subject" type="string"/>
+						<!-- 映射保存集合元素的数据列 -->
+						<element column="grade" type="float"/>
+					</map>
+				</class>
+
+		有序集合:
+			应该为<map../>或<set../>指定sort属性,该属性可指定如下值:
+				unsorted:不排序
+				natural:自然排序
+				java.util.Comparator实现类类名:定制排序
+
+				public class Person
+				{
+					....
+					//有序集合属性，保留该对象参与的培训
+					private SortedSet<String> trainings
+						= new TreeSet<String>();
+					
+					//id属性的setter和getter方法
+					//name属性的setter和getter方法
+					//age属性的setter和getter方法
+					//trainings属性的setter和getter方法
+					....
+					public void setTrainings(SortedSet<String> trainings)
+					{
+						this.trainings = trainings;
+					}
+					public SortedSet<String> getTrainings()
+					{
+						return this.trainings;
+					}
+				}
+			Person.hbm.xml:
+				
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="name" type="string"/>
+					<property name="age" type="int"/>
+					<!-- 映射SortedSet集合属性,使用自然排序
+						增加sort="natural"定义-->
+					<set name="trainings" table="training"
+						sort="natural">
+						<!-- 映射集合属性数据表的外键列 -->
+						<key column="person_id" not-null="true"/>
+						<!-- 映射保存集合元素的数据列,增加非空约束 -->
+						<element type="string" column="training_name"
+							not-null="true"/>
+					</set>
+				</class>
+			
+			order-by:
+				如果希望数据库查询自己对集合元素元素排序:	(在SQL查询中完成排序,而不是在内存中完成)
+
+				<set name="trainings" table="training"
+					order-by="training desc">
+					<!-- 映射集合属性数据表的外键列 -->
+					<key column="person_id" not-null="true"/>
+					<!-- 映射保存集合元素的数据列,增加非空约束 -->
+					<element type="string" column="training"
+						not-null="true"/>
+				</set>
+				（当通过程序Person实体获取trainings集合属性时,所生成的SQL语句总会添加order by training desc子句）
+
+	映射数据库对象:
+			帮助CREATE和DROP任意数据库对象，与Hibernate的schema交互工具组合起来，可以提供在Hibernate映射文件中完全定义用户
+			schema的能力。虽然这是为创建和销毁trigger(触发器）或stored procedure(存储过程）等特别设计的，实际上任何可以在
+			java.sql.Statement.execute()方法中执行的SQL命令都可以在此使用（比如ALTER, INSERT，等等）。本质上有两种模式来定义辅
+			助数据库对象... 
+			
+			第一种模式是在映射文件中显式声明CREATE和DROP命令： 
+
+				<hibernate-mapping>
+				    ...
+				    <database-object>
+					<create>CREATE TRIGGER my_trigger ...</create>
+					<drop>DROP TRIGGER my_trigger</drop>
+				    </database-object>
+				</hibernate-mapping>
+
+			第二种模式是提供一个类，这个类知道如何组织CREATE和DROP命令。这个特别类必须实现org.hibernate.mapping.AuxiliaryDatabaseObject接口。 
+
+				<hibernate-mapping>
+				    ...
+				    <database-object>
+					<definition class="MyTriggerDefinition"/>
+				    </database-object>
+				</hibernate-mapping>
+			
+			还有，这些数据库对象可以特别指定为仅在特定的方言中才使用。 
+
+				<hibernate-mapping>
+				    ...
+				    <database-object>
+					<definition class="MyTriggerDefinition"/>
+					<dialect-scope name="org.hibernate.dialect.Oracle9Dialect"/>
+					<dialect-scope name="org.hibernate.dialect.OracleDialect"/>
+				    </database-object>
+				</hibernate-mapping>
+			
+				（为了使该文件生效,主程序只需如下两行:
+					Configuration conf = new Configuration().configure();
+					SessionFactory sf = conf.buildSessionFactory();
+				在此情况下,hbm2ddl.auto=create
+				）
+				(还有一种方式,使以上映射文件生成数据库对象:
+				 Configuration conf = new Configuration().configure();
+				 SchemaExport se = new SchemaExport(conf);
+				 se.setFormat(true)
+					.setOutputFile("new.sql")
+					.create(true,true);
+				此情况无需hbm2ddl.auto=create,update也可以
+				 )
+
+	
+	映射组件属性:		（组件属性指的是,持久化类的属性并不是数据类型、字符串、日期等标量类型,而是一个复合类型对象,
+				 在持久化的过程中它仅仅被当做值类型,而并非另一个持久化实体）
+		组件属性为标量属性:
+				 public class Person
+				{
+					....
+					//id属性的setter和getter方法
+					//age属性的setter和getter方法
+					//name属性的setter和getter方法
+					....
+					public void setName(Name name)
+					{
+						this.name = name;
+					}
+					public void getName()
+					{
+						return this.name;
+					}
+				}
+
+				public class Name
+				{
+					...
+					//无参数的构造器
+					public Name()
+					{
+					}
+					//初始化first、last属性的构造器
+					public Name(String first , String last)
+					{
+						this.first = first;
+						this.last = last;
+					}
+					//first属性的setter和getter方法
+					//last属性的setter和getter方法
+					....
+					/owner属性的setter和getter方法
+					public void setOwner(Person owner)
+					{
+						this.owner = owner;
+					}
+					public Person getOwner()
+					{
+						return this.owner;
+					}
+				}
+			Person.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="age" type="int"/>
+					<!-- 映射组件属性name，组件属性的类型为Name -->
+					<component name="name" 
+						class="Name" unique="true">
+						<!-- 指定owner属性代表容器实体 -->
+						<parent name="owner"/>
+						<!-- 映射组件属性的first属性 -->
+						<property name="first"/>
+						<!-- 映射组件属性的last属性 -->
+						<property name="last"/>
+					</component>
+				</class>
+			注意:
+				1.<component../>可指定如下属性:
+					>>class:指定组件类类名
+					>>insert:被映射字段是否出现在SQL的insert语句中
+					>>update:被映射字段是否出现在SQL的update中
+					>>access:指定Hibernate访问该属性的访问策略,默认值为property
+					>>lazy:设置该组件第一次被访问时是否启用延时加载,默认为property
+					>>optimistic-lock:设置更新该组件属性是否需要获取乐观锁,如果设为true,当修改该组件时持久化对象的版本号会增加
+					>>unique:指定是否在该组件映射的所有字段上增加唯一约束
+				2.<component../>可指定如下子元素:
+					>><property../>:映射组件属性的子属性,与<class../>中的<property../>用法一样
+					>><parent../>:用于映射组件类内一个指向其容器实体的引用
+					>><component../>:组件属性里再包含组件
+					>><set../>、<list../>、<map../>:组件里的属性是数组、集合等
+					>><many-to-one../>、<one-to-one../>:组件里的属性是另一个持久化实例的引用
+				3，对于只包含普通标量属性的组件类型而言,Hibernate的处理策略为:组件里的每个属性映射一个数据列即可
+		
+		
+		组件属性为集合:	(组件类包含了List、Set、Map等集合属性)
+				public class Person
+				{
+					....
+					//id属性的setter和getter方法
+					//age属性的setter和getter方法
+					//name属性的setter和getter方法
+					....
+					public void setName(Name name)
+					{
+						this.name = name;
+					}
+					public void getName()
+					{
+						return this.name;
+					}
+				}
+				
+				public class Name
+				{
+					....
+					private Map<String ,Integer> power
+						= new HashMap<String ,Integer>();
+
+					//无参数的构造器
+					public Name()
+					{
+					}
+					//初始化全部属性的构造器
+					public Name(String first , String last)
+					{
+						this.first = first;
+						this.last = last;
+					}
+					
+					//first属性的setter和getter方法
+					//last属性的setter和getter方法
+					//owner属性的setter和getter方法
+					....
+					public void setOwner(Person owner)
+					{
+						this.owner = owner;
+					}
+					public Person getOwner()
+					{
+						return this.owner;
+					}
+					
+					//power属性的setter和getter方法
+					public void setPower(Map<String ,Integer> power)
+					{
+						this.power = power;
+					}
+					public Map<String ,Integer> getPower()
+					{
+						return this.power;
+					}
+				}
+			Person.hbm.xml:	
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="age" type="int"/>
+					<!-- 映射组件属性name，组件属性的类型为Name -->
+					<component name="name" 
+						class="Name" unique="true">
+						<!-- 指定owner属性代表容器实体 -->
+						<parent name="owner"/>
+						<!-- 映射组件属性的first属性 -->
+						<property name="first"/>
+						<!-- 映射组件属性的last属性 -->
+						<property name="last"/>
+						<!-- 映射组件属性里的Map集合属性 -->
+						<map name="power" table="name_power">
+							<!-- 映射集合属性数据表的外键列 -->
+							<key column="person_name_id" not-null="true"/>
+							<!-- 映射集合属性数据表的Map key列 -->
+							<map-key column="name_aspect" type="string"/>
+							<!-- 映射保存集合元素的数据列 -->
+							<element column="name_power" type="int"/>
+						</map>
+					</component>
+				</class>
+							
+		集合属性为组件:
+				public class Person
+				{
+					....
+					//组件属性name
+					private Map<String , Name> nicks
+						= new HashMap<String , Name>();	
+					//id属性的setter和getter方法
+					//age属性的setter和getter方法
+					//nicks属性的setter和getter方法
+					public void setNicks(Map<String , Name> nicks)
+					{
+						this.nicks = nicks;
+					}
+					public Map<String , Name> getNicks()
+					{
+						return this.nicks;
+					}
+				}
+				public class Name
+				{
+					...
+					//无参数的构造器
+					public Name()
+					{
+					}
+					//初始化first、last属性的构造器
+					public Name(String first , String last)
+					{
+						this.first = first;
+						this.last = last;
+					}
+					//first属性的setter和getter方法
+					//last属性的setter和getter方法
+					....
+					/owner属性的setter和getter方法
+					public void setOwner(Person owner)
+					{
+						this.owner = owner;
+					}
+					public Person getOwner()
+					{
+						return this.owner;
+					}
+				}
+			Person.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="age" type="int"/>
+					<!-- 映射nicks集合属性，集合属性对应的数据表为nick_inf -->
+					<map name="nicks" table="nick_inf">
+						<!-- 映射集合属性数据表的外键列 -->
+						<key column="person_id" not-null="true"/>
+						<!-- 映射集合属性数据表的Map key列 -->
+						<map-key column="phase" type="string"/>
+						<!-- 映射保存集合里的组件元素 -->
+						<composite-element class="Name">
+							<!-- 指定owner属性代表容器实体 -->
+							<parent name="owner"/>
+							<!-- 映射组件属性的first属性 -->
+							<property name="first"/>
+							<!-- 映射组件属性的last属性 -->
+							<property name="last"/>
+						</composite-element>
+					</map>
+				</class>
+			注意:
+				1.如果组件的属性是基本类型、字符串和日期等,使用<property../>子元素映射这些属性即可
+				2.如果组件属性又是组件类型,则使用<nested-composite-element../>来映射这些嵌套组件属性
+				3.如果组件属性引用其他持久化实体,则使用<many-to-one../>来映射该属性
+				4.也可指定一个<parent../>用于引用包含该组件属性的持久化实体
+				5.不允许再在<composite-element../>中包含<list../>、<set../>、<map../>等集合映射元素
+		
+		组件作为Map的索引:
+				
+				public class Person
+				{
+					....
+					private Map<Name , Integer> nickPower
+						= new HashMap<Name , Integer>();
+					
+					//id属性的setter和getter方法
+					//age属性的setter和getter方法
+					....
+					//nickPower属性的setter和getter方法
+					public void setNickPower(Map<Name , Integer> nickPower)
+					{
+						this.nickPower = nickPower;
+					}
+					public Map<Name , Integer> getNickPower()
+					{
+						return this.nickPower;
+					}
+				}
+
+				public class Name
+				{
+					....
+					//无参数的构造器
+					public Name()
+					{
+					}
+					//初始化全部属性的构造器
+					public Name(String first , String last)
+					{
+						this.first = first;
+						this.last = last;
+					}
+					
+					//first属性的setter和getter方法
+					//last属性的setter和getter方法
+					....
+					//owner属性的setter和getter方法
+					public void setOwner(Person owner)
+					{
+						this.owner = owner;
+					}
+					public Person getOwner()
+					{
+						return this.owner;
+					}
+					
+					//重写equals方法，根据first、last进行判断
+					public boolean equals(Object obj)
+					{
+						if (this == obj)
+						{
+							return true;
+						}
+						if (obj != null 
+							&& obj.getClass() == Name.class)
+						{
+							Name target = (Name)obj;
+							if (target.getFirst().equals(getFirst())
+								&& target.getLast().equals(getLast()))
+							{
+								return true;
+							}
+						}
+						return false;
+					}
+
+					//重写hashCode方法，根据first、last计算hashCode值
+					public int hashCode()
+					{
+						return getFirst().hashCode() * 13 
+							+ getLast().hashCode();
+					}
+				}
+			Person.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 映射标识属性 -->
+					<id name="id" column="person_id">
+						<!-- 指定主键生成器策略 -->
+						<generator class="identity"/>
+					</id>
+					<!-- 映射普通属性 -->
+					<property name="age" type="int"/>
+					<!-- 映射nickPower集合属性，集合属性对应的数据表为nick_power -->
+					<map name="nickPower" table="nick_power">
+						<!-- 映射集合属性数据表的外键列 -->
+						<key column="person_id" not-null="true"/>
+						<!-- 映射集合属性数据表的Map key列 ，
+							因为Map key的数据类型是复合类型，所以使用如下元素-->
+						<composite-map-key class="Name">
+							<!-- 映射复合组件的属性 -->
+							<key-property name="first" type="string"/>
+							<key-property name="last" type="string"/>
+						</composite-map-key>
+						<!-- 映射集合元素的数据列 -->
+						<element column="nick_power" type="int"/>
+					</map>
+				</class>
+			注意:
+				1.<composite-map-key../>有如下子元素:
+					>><key-property../>:组件里的属性是基本类型、字符串和日期类型时使用该元素来映射
+					>><key-many-to-one../>:组件里的属性是对其他持久化实体的引用时使用该元素来映射
+				2.由于Map Key的特殊性,所以该组件类必须重写equals()和hashCode()方法
+		
+		组件作为复合主键:
+				public class Person
+				{
+					//以Name组件作为标识属性
+					private Name name;
+					//普通属性age
+					private int age;
+					//name属性的setter和getter方法
+					public void setName(Name name)
+					{
+						this.name = name;
+					}
+					public Name getName()
+					{
+						return this.name;
+					}
+					//age属性的setter和getter方法
+					public void setAge(int age)
+					{
+						this.age = age;
+					}
+					public int getAge()
+					{
+						return this.age;
+					}
+				}
+
+				public class Name
+					implements java.io.Serializable
+				{
+					....
+					public Name()
+					{
+					}
+					//初始化全部属性的构造器
+					public Name(String first , String last)
+					{
+						this.first = first;
+						this.last = last;
+					}
+					
+					//first属性的setter和getter方法
+					//last属性的setter和getter方法
+					....
+					//重写equals方法，根据first、last进行判断
+					public boolean equals(Object obj)
+					{
+						if (this == obj)
+						{
+							return true;
+						}
+						if (obj != null 
+							&& obj.getClass() == Name.class)
+						{
+							Name target = (Name)obj;
+							if (target.getFirst().equals(getFirst())
+								&& target.getLast().equals(getLast()))
+							{
+								return true;
+							}
+						}
+						return false;
+					}
+					//重写hashCode方法，根据first、last计算hashCode值
+					public int hashCode()
+					{
+						return getFirst().hashCode() * 7 
+							+ getLast().hashCode();
+					}
+				}
+			Person.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 映射组件类型的标识属性 -->
+					<composite-id name="name" class="Name">
+						<!-- 映射组件主键里的各属性 -->
+						<key-property name="first" type="string"/>
+						<key-property name="last" type="string"/>
+					</composite-id>
+					<!-- 映射普通属性 -->
+					<property name="age" type="int"/>
+				</class>
+			注意:
+				1.作为复合主键的主键类需满足如下条件:
+					>>必须实现java.io.Serializable
+					>>重写equals()和hashCode()方法	(不是必须的,但建议这样做)
+				2.使用组件作为复合主键,Hibernate无法为这种组件自动生成主键值,所以程序必须手动为持久化实例分配这种组件标识符
+				3.不支持在<composite-id../>元素里使用<parent../>指定其包含实体
+
+	多列作为联合主键:
+				public class Person
+				implements java.io.Serializable
+				{
+					....
+					//first属性的setter和getter方法
+					//last属性的setter和getter方法
+					//age属性的setter和getter方法
+					....
+					//重写equals方法，根据first、last进行判断
+					public boolean equals(Object obj)
+					{
+						if (this == obj)
+						{
+							return true;
+						}
+						if (obj != null 
+							&& obj.getClass() == Person.class)
+						{
+							Person target = (Person)obj;
+							if (target.getFirst().equals(getFirst())
+								&& target.getLast().equals(getLast()))
+							{
+								return true;
+							}
+						}
+						return false;
+					}
+
+					//重写hashCode方法，根据first、last计算hashCode值
+					public int hashCode()
+					{
+						return getFirst().hashCode() * 13
+							+ getLast().hashCode();
+					}
+				}
+			Person.hbm.xml:
+				<class name="Person" table="person_inf">
+					<!-- 直接使用composite-id映射多列联合主键 -->
+					<composite-id>
+						<!-- 映射组件主键里的各属性 -->
+						<key-property name="first" type="string"/>
+						<key-property name="last" type="string"/>
+					</composite-id>
+					<!-- 映射普通属性 -->
+					<property name="age" type="int"/>
+				</class>
+			注意:
+				1.多列作为联合主键的持久化类应满足如下条件:
+					>>实现Serializable接口
+					>>根据作为联合主键的列属性,重写equals()和hashCode()方法
+	
+	使用JPA Annotation标注实体:	(将hibernate发行包中lib目录下jpa子目录的jar包复制到web应用类加载路径下)
+				
+				@Entity
+				@Table(name="person_table")
+				public class Person
+				{
+					/* 指定使用复合主键类是Name */
+					@EmbeddedId
+					@AttributeOverrides({
+						@AttributeOverride(name="first"
+							, column=@Column(name="person_first")),
+						@AttributeOverride(name="last"
+							, column=@Column(name="person_last" , length=20))
+					})
+					private Name name;
+					//普通属性
+					@Column(name="person_email")
+					private String email;
+					@Embedded
+					@AttributeOverrides({
+						@AttributeOverride(name="name" 
+							, column=@Column(name="cat_name" , length=35)),
+						@AttributeOverride(name="color" 
+							, column=@Column(name="cat_color"))
+					})
+					//组件属性，代表此人拥有的宠物
+					private Cat pet;
+					//name属性的setter和getter方法
+					//email属性的setter和getter方法
+					//pet属性的setter和getter方法
+					....
+				}
+
+				@Embeddable
+				public class Name
+					implements java.io.Serializable
+				{
+					....
+					//无参数的构造器
+					public Name()
+					{
+					}
+					//初始化全部属性的构造器
+					public Name(String first , String last)
+					{
+						this.first = first;
+						this.last = last;
+					}
+					//first属性的setter和getter方法
+					//last属性的setter和getter方法
+					....
+					//提供重写的equals方法
+					public boolean equals(Object obj)
+					{
+						if (this == obj)
+						{
+							return true;
+						}
+						if (obj.getClass() == Name.class)
+						{
+							Name target = (Name)obj;
+							if (target.getFirst().equals(first)
+								&& target.getLast().equals(last))
+							{
+								return true;
+							}
+						}
+						return false;
+					}
+
+					//提供重写的hashCode方法
+					public int hashCode()
+					{
+						return first.hashCode() + last.hashCode() * 17;
+					}
+				}
+
+				@Embeddable
+				public class Cat
+				{
+					private String name;
+					private String color;
+					
+					//无参数的构造器
+					public Cat()
+					{
+					}
+					//初始化全部属性的构造器
+					public Cat(String name , String color)
+					{
+						this.name = name;
+						this.color = color;
+					}
+					
+					//name属性的setter和getter方法
+					//color属性的setter和getter方法
+					....
+				}	
+			hibernate.cfg.xml:
+				<?xml version="1.0" encoding="GBK"?>
+				<!-- 指定Hibernate配置文件的DTD信息 -->
+				<!DOCTYPE hibernate-configuration PUBLIC
+					"-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+					"http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+				<!-- hibernate- configuration是连接配置文件的根元素 -->
+				<hibernate-configuration>
+					<session-factory>
+						....
+						<mapping class="org.crazyit.app.domain.Person"/>
+					</session-factory>
+				</hibernate-configuration>
+
+																					

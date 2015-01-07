@@ -1,0 +1,122 @@
+Hibernate的配置文件:
+	方式:
+		1.hibernate.properties:
+			key=value
+		2.hibernate.cfg.xml:
+			<?xml version="1.0" encoding="GBK"?>
+			<!-- 指定Hibernate配置文件的DTD信息 -->
+			<!DOCTYPE hibernate-configuration PUBLIC
+				"-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+				"http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+			<!-- hibernate- configuration是连接配置文件的根元素 -->
+			<hibernate-configuration>
+				<session-factory>
+					<!-- 指定连接数据库所用的驱动 -->
+					<property name="connection.driver_class">com.mysql.jdbc.Driver</property>
+					...
+					<mapping resource="org/crazyit/app/domain/News.hbm.xml"/>
+				</session-factory>
+			</hibernate-configuration>
+	JDBC连接属性:
+			<property name="connection.driver_class">com.mysql.jdbc.Driver</property>
+			<!-- 指定连接数据库的url，hibernate连接的数据库名 -->
+			<property name="connection.url">jdbc:mysql://localhost/hibernate</property>
+			<!-- 指定连接数据库的用户名 -->
+			<property name="connection.username">root</property>
+			<!-- 指定连接数据库的密码 -->
+			<property name="connection.password">MYSQLADMIN</property>
+			<!-- 指定连接池里最大连接数 -->
+			<property name="hibernate.c3p0.max_size">20</property>
+			<!-- 指定连接池里最小连接数 -->
+			<property name="hibernate.c3p0.min_size">1</property>
+			<!-- 指定连接池里连接的超时时长 -->
+			<property name="hibernate.c3p0.timeout">5000</property>
+			<!-- 指定连接池里最大缓存多少个Statement对象 -->
+			<property name="hibernate.c3p0.max_statements">100</property>
+			<property name="hibernate.c3p0.idle_test_period">3000</property>
+			<property name="hibernate.c3p0.acquire_increment">2</property>
+			<property name="hibernate.c3p0.validate">true</property>
+	数据库方言:
+					RDBMS			方言  
+					DB2		org.hibernate.dialect.DB2Dialect 
+					DB2 AS/400	org.hibernate.dialect.DB2400Dialect 
+					DB2 OS390	 org.hibernate.dialect.DB2390Dialect 
+					PostgreSQL	 org.hibernate.dialect.PostgreSQLDialect 
+					MySQL		org.hibernate.dialect.MySQLDialect 
+				MySQL with InnoDB	org.hibernate.dialect.MySQLInnoDBDialect 
+				MySQL with MyISAM	org.hibernate.dialect.MySQLMyISAMDialect 
+				Oracle (any version)	 org.hibernate.dialect.OracleDialect 
+				Oracle 9i/10g		org.hibernate.dialect.Oracle9Dialect 
+					Sybase		org.hibernate.dialect.SybaseDialect 
+				Sybase Anywhere		org.hibernate.dialect.SybaseAnywhereDialect 
+				Microsoft SQL Server	 org.hibernate.dialect.SQLServerDialect 
+				SAP DB			 org.hibernate.dialect.SAPDBDialect 
+				Informix		org.hibernate.dialect.InformixDialect 
+				HypersonicSQL		org.hibernate.dialect.HSQLDialect 
+				Ingres			org.hibernate.dialect.IngresDialect 
+				Progress		org.hibernate.dialect.ProgressDialect 
+				Mckoi SQL		 org.hibernate.dialect.MckoiDialect 
+				Interbase		org.hibernate.dialect.InterbaseDialect 
+				Pointbase		 org.hibernate.dialect.PointbaseDialect 
+				FrontBase		 org.hibernate.dialect.FrontbaseDialect 
+				Firebird		 org.hibernate.dialect.FirebirdDialect 
+
+	JNDI数据源连接属性:	(如果无需Hibernate自己管理数据源,而是直接访问容器管理数据源,可使用JNDI)
+				
+					
+					属性名				    用途  
+				hibernate.connection.datasource		数据源JNDI名字  
+				hibernate.jndi.url			JNDI提供者的URL (可选)  
+				hibernate.jndi.class			JNDI InitialContextFactory类 (可选)  
+				hibernate.connection.username		 数据库用户 (可选)  
+				hibernate.connection.password		数据库用户密码 (可选)  
+
+			下面是配置Hibernate连接Tomcat中数据源的配置片段:
+				//配置JNDI数据源的JNDI名
+				<property name="connection.datasource">java:comp/env/jdbc/dstest</property>
+				<property name="dialect">org.hibernate.dialect.MySQLDialect</property>
+			如果数据源所在容器支持跨事务的全局事务管理,从JNDI数据源获得的JDBC连接,可自动参与容器管理的全局事务,而不仅仅是Hibernate事务
+	
+	Hibernate事务属性:
+			
+						属性名					用途  
+			hibernate.transaction.factory_class			 一个TransactionFactory的类名, 用于Hibernate Transaction API (默认为JDBCTransactionFactory). 
+										取值 classname.of.TransactionFactory 
+			 
+			jta.UserTransaction					一个JNDI名字，被JTATransactionFactory用来从应用服务器获取JTA UserTransaction. 
+										取值 jndi/composite/name 
+			 
+			hibernate.transaction.manager_lookup_class		一个TransactionManagerLookup的类名 - 当使用JVM级缓存，或在JTA环境中使用hilo生成器的时候需要该类. 
+										取值 classname.of.TransactionManagerLookup 
+			 
+			hibernate.transaction.flush_before_completion		 如果开启, session在事务完成后将被自动清洗(flush)。 现在更好的方法是使用自动session上下文管理。请参见第 2.5 节 “上下文相关的（Contextual）Session”。 
+										取值 true | false 
+			 
+			hibernate.transaction.auto_close_session		 如果开启, session在事务完成后将被自动关闭。 现在更好的方法是使用自动session上下文管理。请参见第 2.5 节 “上下文相关的（Contextual）Session”。 
+										取值 true | false 
+	二级缓存相关属性:
+			
+				属性名					 用途  
+			hibernate.cache.provider_class		自定义的CacheProvider的类名. 
+								取值 classname.of.CacheProvider 
+	 
+			hibernate.cache.use_minimal_puts	以频繁的读操作为代价, 优化二级缓存来最小化写操作. 在Hibernate3中，这个设置对的集群缓存非常有用, 对集群缓存的实现而言，默认是开启的. 
+								取值 true|false 
+	 
+			hibernate.cache.use_query_cache		允许查询缓存, 个别查询仍然需要被设置为可缓存的. 
+								取值 true|false 
+	 
+			hibernate.cache.use_second_level_cache  能用来完全禁止使用二级缓存. 对那些在类的映射定义中指定<cache>的类，会默认开启二级缓存. 
+								取值 true|false 
+			 
+			hibernate.cache.query_cache_factory	自定义实现QueryCache接口的类名, 默认为内建的StandardQueryCache. 
+								取值 classname.of.QueryCache 
+			 
+			hibernate.cache.region_prefix		二级缓存区域名的前缀. 
+								取值 prefix 
+			 
+			hibernate.cache.use_structured_entries  强制Hibernate以更人性化的格式将数据存入二级缓存. 
+								取值 true|false 
+	
+	
+

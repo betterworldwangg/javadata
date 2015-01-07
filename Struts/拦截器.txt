@@ -1,0 +1,425 @@
+Struts2的拦截器机制:
+	原理:Struts2可以理解为一个空容器,而大量内建拦截器完成了框架的大部分工作,比如params拦截器负责解析HTTP请求参数并设置Action的属性
+		servlet-config拦截器直接将HTTP请求中的HttpServletRequest实例和HttpServletResponse实例传给Action
+		FileUpLoad拦截器负责解析请求中的文件域,并将文件域设置为Action的三个属性
+		Struts2拦截器采用可插拔式的设计,需要使用某个拦截器,只需在struts.xml或struts-default.xml文件中配置该拦截器即可,如果不需要只需取消配置
+
+	注意:
+		1.当StrutsPrepareAndExecuteFilter拦截到用户请求之后,大量拦截器会对用户请求进行处理,然后才会调用用户开发的Action来处理请求
+		2.Struts2默认已经启用了大量通用拦截器,只要我们配置Action的package继承了struts-default包,这些拦截器就会起作用
+
+	所有与拦截器相关配置元素:
+		<interceptors../>:用于定义拦截器和拦截器栈,所有拦截器和拦截器栈在该元素下定义
+		<interceptor../>:用于定义单个拦截器
+		<interceptor-stack../>:用于定义拦截器栈,该元素包含多个<interceptor-ref../>
+		<interceptor-ref../>:应用一个拦截器或拦截器栈
+		<param../>:用于为拦截器指定参数
+		<default-interceptor-ref../>:用于为指定包配置默认拦截器
+
+	定义拦截器:
+		定义拦截器:
+			不带参数:
+				<interceptor name="拦截器名" class="拦截器实现类"/>
+			带参数:
+				<interceptor name="拦截器名" class="拦截器实现类">
+					<param name="参数名">参数值</param>
+					...
+				</interceptor>
+		定义拦截器栈:
+			只包含拦截器:
+				<interceptor-stack name="拦截器栈名">
+					<interceptor-ref name="拦截器一"/>
+					<interceptor-ref name="拦截器二"/>
+					....
+				</interceptor-stack>
+			包含拦截器栈:
+				<interceptor-stack name="拦截器栈一">
+					<interceptor-ref name="拦截器一"/>
+					<interceptor-ref name="拦截器二"/>
+					....
+				</interceptor-stack>
+				<interceptor-stack name="拦截器栈二">
+					<interceptor-ref name="拦截器三"/>
+					<interceptor-ref name="拦截器栈一"/>
+					....
+				</interceptor-stack>
+		为拦截器指定参数:
+				1.定义拦截器时指定参数:作为拦截器参数默认值
+				2.使用拦截器时指定参数:在配置Action时指定参数值,覆盖默认值
+					>><interceptor-stack name="拦截器栈名">
+						<interceptor-ref name="拦截器一">
+							<param name="参数一">参数值一</param>
+							<param name="参数二">参数值二</param>
+						</interceptor>
+						<interceptor-ref name="拦截器二"/>
+						....
+					</interceptor-stack>
+	使用拦截器:	(拦截器的拦截行为在Action的execute()之前执行)
+			<interceptors>
+				<interceptor name="mysimple" class="wang.SimpleInterceptor"/>
+				<interceptor name="later" class="wang.LaterInterceptor">
+					<param name="name">第二个拦截器</param>
+				</interceptor>
+			</interceptors>
+			....
+			<action name="login" class="org.wang.app.action.LoginAction">
+				<result name="error">/error.jsp</result>
+				<result name="success">/welcome.jsp</result>
+				<interceptor-ref name="defaultStack"/>
+				<interceptor-ref name="simple"/>
+				<interceptor-ref name="later">
+					<param name="name">动态参数</param>
+				</interceptor-ref>
+			</action>
+	配置默认拦截器:
+			<package name="包名">
+				<interceptors>
+					<interceptor../>
+					<interceptor-stack../>
+				</interceptors>
+				<default-interceptor-ref name="拦截器名或拦截器栈名"/>
+				<action../>
+			</package>
+			
+
+			注意:
+				1.只有当Action中没有显式应用拦截器时,该Action所在包的默认拦截器才会生效
+				2.为该包下所有Action配置默认拦截器
+				3.每个包只能指定一个默认拦截器,若需指定多个需使用拦截器栈
+
+	自定义拦截器:
+			注意:
+				1.如果要实现自定义拦截器实现类必须实现com.opensymphony.xwork2.interceptor.Interceptor
+				2.Interceptor包含init()、destroy()、interceptor()方法
+				3.init()主要用于初始化资源
+				4.destroy()在拦截器实例被销毁之前,关闭init()中打开的资源
+				5.interceptor()用户实现的拦截动作,会返回一个字符串逻辑视图,如果直接返回了逻辑视图,则不会调用被拦截Action,可以通过
+				  该方法ActionInvocation参数的invoke()方法将控制权转给下一个拦截器或Action的execute方法
+				6.Struts2还提供了一个AbstractInterceptor类,该类提供了init()和destroy()可空实现
+
+			例:
+				拦截器类:
+					public class SimpleInterceptor
+						extends AbstractInterceptor
+					{
+						//简单拦截器的名字
+						private String name;
+						//为该简单拦截器设置名字的setter方法
+						public void setName(String name)
+						{
+							this.name = name;
+						}
+						public String intercept(ActionInvocation invocation)
+							throws Exception
+						{
+							//取得被拦截的Action实例
+							LoginAction action = (LoginAction)invocation.getAction();
+							//打印执行开始的实现
+							System.out.println(name + " 拦截器的动作---------" + 
+								"开始执行登录Action的时间为：" + new Date());
+							//取得开始执行Action的时间
+							long start = System.currentTimeMillis();
+							//执行该拦截器的后一个拦截器
+							//如果该拦截器后没有其他拦截器，则直接执行Action的execute方法
+							String result = invocation.invoke();
+							//打印执行结束的时间
+							System.out.println(name + " 拦截器的动作---------" + 
+								"执行完登录Action的时间为：" + new Date());
+							long end = System.currentTimeMillis();
+							System.out.println(name + " 拦截器的动作---------" + 
+								"执行完该Action的事件为" + (end - start) + "毫秒");
+							return result;
+						}
+					}
+				使用拦截器:
+					struts.xml:
+						<package name="lee" extends="struts-default">
+							<!-- 应用所需使用的拦截器都在该元素下配置 -->
+							<interceptors>
+								<!-- 配置mysimple拦截器 -->
+								<interceptor name="mysimple"
+								class="org.crazyit.app.interceptor.SimpleInterceptor">
+									<!-- 为拦截器指定参数值 -->
+									<param name="name">简单拦截器</param>
+								</interceptor>
+							</interceptors>
+
+							<action name="loginPro" class="org.crazyit.app.action.LoginAction">
+								<result name="error">/WEB-INF/content/error.jsp</result>
+								<result name="success">/WEB-INF/content/welcome.jsp</result> 
+								<!-- 配置系统的默认拦截器 -->
+								<interceptor-ref name="defaultStack"/>
+								<!-- 应用自定义的mysimple拦截器 -->
+								<interceptor-ref name="mysimple">
+									<param name="name">改名后的拦截器</param>
+								</interceptor-ref>
+							</action>
+							<action name="*">
+								<result>/WEB-INF/content/{1}.jsp</result>
+							</action>
+						</package>
+
+						（如果为Action指定了拦截器,则系统默认的拦截器将会失去作用,所以应配置默认拦截器）
+
+				
+	拦截方法的拦截器:
+			注意:
+				1.Struts2提供了MethodFilterInterceptor类,该类是AbstractInterceptor的子类
+				2.要实现拦截器的方法过滤特性应继承该类,并重写doInterceptor(ActionInvocation invocation)方法
+				3.该类中增加了如下两个方法
+					>>setExcludeMethods(String excludeMethods):不需要被拦截的方法
+					>>setIncludeMethods(String includeMethods):需要被拦截的方法
+				4.因为MethodFilterInterceptor有如上两个方法,所以它的子类也有,
+					可以在配置文件中指定需要被拦截与不需要被拦截的方法
+				5.如果配置文件中excludeMethods与includeMethods有冲突,includeMethods取胜
+
+			例:
+				public class MyFilterInterceptor
+					extends MethodFilterInterceptor
+				{
+					//简单拦截器的名字
+					private String name;
+					//为该简单拦截器设置名字的setter方法
+					public void setName(String name)
+					{
+						this.name = name;
+					}
+					//重写doIntercept方法，实现对Action的拦截逻辑
+					public String doIntercept(ActionInvocation invocation)
+						throws Exception
+					{
+						//取得被拦截的Action实例
+						LoginAction action = (LoginAction)invocation.getAction();
+						//打印执行开始的时间
+						System.out.println(name + " 拦截器的动作---------"
+							+ "开始执行登录Action的时间为：" + new Date());
+						//取得开始执行Action的时间
+						long start = System.currentTimeMillis();
+						//执行该拦截器的后一个拦截器，或者直接指定Action的execute方法
+						String result = invocation.invoke();
+						//打印执行结束的时间
+						System.out.println(name + " 拦截器的动作---------" 
+							+ "执行完登录Action的时间为：" + new Date());
+						long end = System.currentTimeMillis();
+						//打印执行该Action所花费的时间
+						System.out.println(name + " 拦截器的动作---------"
+							+ "执行完该Action的事件为" + (end - start) + "毫秒");
+						return result;
+					}
+				}
+
+				配置:
+					<package name="lee" extends="struts-default">
+					<!-- 应用所需使用的拦截器都在该元素下配置 -->
+					<interceptors>
+						<!-- 配置mysimple拦截器 -->
+						<interceptor name="mysimple"
+						class="org.crazyit.app.interceptor.MyFilterInterceptor">
+							<!-- 为拦截器指定参数值 -->
+							<param name="name">拦截方法的拦截器</param>
+						</interceptor>
+					</interceptors>
+
+					<action name="loginPro" class="org.crazyit.app.action.LoginAction">
+						<result name="error">/WEB-INF/content/error.jsp</result>
+						<result name="success">/WEB-INF/content/welcome.jsp</result> 
+						<!-- 配置系统的默认拦截器 -->
+						<interceptor-ref name="defaultStack"/>
+						<!-- 应用自定义的mysimple拦截器 -->
+						<interceptor-ref name="mysimple">
+							<!-- 重新指定name属性的属性值 -->
+							<param name="name">改名后的拦截方法过滤拦截器</param>
+							<!-- 指定execute方法不需要被拦截,如果有多个方法可使用英文（,）隔开-->
+							<param name="excludeMethods">execute</param>
+						</interceptor-ref>
+					</action>
+
+	拦截器的执行顺序:
+					<package name="lee" extends="struts-default">
+						<!-- 应用所需使用的拦截器都在该元素下配置 -->
+						<interceptors>
+							<!-- 配置mysimple拦截器 -->
+							<interceptor name="mysimple"
+							class="org.crazyit.app.interceptor.SimpleInterceptor">
+								<!-- 为拦截器指定参数值 -->
+								<param name="name">简单拦截器</param>
+							</interceptor>
+						</interceptors>
+
+						<action name="loginPro" class="org.crazyit.app.action.LoginAction">
+							<result name="error">/WEB-INF/content/error.jsp</result>
+							<result name="success">/WEB-INF/content/welcome.jsp</result> 
+							<!-- 配置系统的默认拦截器 -->
+							<interceptor-ref name="defaultStack"/>
+							<!-- 应用自定义的mysimple拦截器 -->
+							<interceptor-ref name="mysimple">
+								<param name="name">第一个</param>
+							</interceptor-ref>
+							<interceptor-ref name="mysimple">
+								<param name="name">第二个</param>
+							</interceptor-ref>
+						</action>
+					</package>
+					运行结果为:
+						第一个拦截器
+						第二个拦截器
+						进入execute()方法体
+						第二个拦截器
+						第一个拦截器
+				注意:
+					1.在Action的控制方法执行之前,位于拦截器链前面的拦截器先发生作用
+					  在Action的控制方法执行之后,位于拦截器链后面的拦截器先发生作用
+
+	拦截结果的监听器:	(精确定义在execute方法执行结束之后,在处理物理资源转向之前的动作)
+			注意:
+				1.把PreResultListener监听器注册在拦截器中,只要拦截器起作用的地方,监听器就会被触发
+				2.beforeResult方法中的形参resultCode是被拦截Action的execute方法返回值
+				3.ActionInvocation类型的参数已无法控制Action,因为Action的execute方法已经执行结束了
+				4.不要在RreResultListener监听器的beforeResult方法中调用ActionInvocation参数的invoke(),否则会陷入死循环
+			例:
+				监听器:public class MyPreResultListener 
+						implements PreResultListener
+					{
+						//定义在处理Result之前的行为
+						public void beforeResult(ActionInvocation invocation
+							,String resultCode)
+						{
+							//打印出执行结果
+							System.out.println("返回的逻辑视图为:" + resultCode);
+							try
+							{
+								invocation.invoke();
+							}
+							catch (Exception ex)
+							{
+								ex.printStackTrace();
+							}
+							finally
+							{
+							}
+						}
+					}
+				拦截器:
+
+					public class BeforeResultInterceptor
+						extends AbstractInterceptor
+					{
+						public String intercept(ActionInvocation invocation)
+							throws Exception
+						{
+							//将一个拦截结果的监听器注册给该拦截器
+							invocation.addPreResultListener(new MyPreResultListener()); 
+							System.out.println("execute方法执行之前的拦截...");
+							//调用下一个拦截器，或者Action的执行方法
+							String result = invocation.invoke();
+							System.out.println("execute方法执行之后的拦截...");
+							return result;
+						}
+					}
+				
+覆盖拦截器栈里特定拦截器的参数:
+				注意:
+					1.如果需要在使用拦截器栈时直接覆盖某个拦截器的属性值采用:<拦截器名>.<属性名>
+
+				
+				<package name="lee" extends="struts-default">
+					<!-- 应用所需使用的拦截器都在该元素下配置 -->
+					<interceptors>
+						<!-- 配置mysimple拦截器 -->
+						<interceptor name="mysimple"
+						class="org.crazyit.app.interceptor.SimpleInterceptor">
+							<!-- 为拦截器指定参数值 -->
+							<param name="name">简单拦截器</param>
+						</interceptor>
+						<!-- 配置第二个拦截器 -->
+						<interceptor name="second" class="lee.SecondInterceptor"/>
+						<!-- 配置名为my-stack的拦截器栈 -->
+						<interceptor-stack name="my-stack">
+							<!-- 配置拦截器栈内的第一个拦截器 -->
+							<interceptor-ref name="mysimple">
+								<param name="name">第一个</param>
+							</interceptor-ref>
+							<!-- 配置拦截器栈内的第二个拦截器 -->
+							<interceptor-ref name="second">
+								<param name="name">第二个</param>
+							</interceptor-ref>
+						</interceptor-stack>
+					</interceptors>
+
+					<action name="loginPro" class="org.crazyit.app.action.LoginAction">
+						<result name="error">/WEB-INF/content/error.jsp</result>
+						<result name="success">/WEB-INF/content/welcome.jsp</result> 
+						<!-- 配置系统的默认拦截器 -->
+						<interceptor-ref name="defaultStack"/>
+						<!-- 应用上面的拦截器栈 -->
+						<interceptor-ref name="my-stack">
+						<!-- 覆盖指定拦截器的指定参数值 -->
+						<param name="second.name">改名后的拦截器</param>
+						</interceptor-ref>
+					</action>
+					...
+				</package>
+
+使用拦截器完成权限控制:
+			注意:
+				1.拦截器的intercept(ActionInvocation invocation)中的invocation参数可以轻易访问到请求相关的ActionContext
+			
+			例:
+				拦截器:
+					public class AuthorityInterceptor
+						extends AbstractInterceptor
+					{
+						//拦截Action处理的拦截方法
+						public String intercept(ActionInvocation invocation)
+							throws Exception
+						{
+							//取得请求相关的ActionContext实例
+							ActionContext ctx = invocation.getInvocationContext();
+							Map session = ctx.getSession();
+							//取出名为user的Session属性
+							String user = (String)session.get("user");
+							//如果没有登录，或者登录所用的用户名不是scott，都返回重新登录
+							if (user != null && user.equals("crazyit.org") )
+							{
+								return invocation.invoke();
+							}
+							//没有登录，将服务器提示设置成一个HttpServletRequest属性
+							ctx.put("tip" ,
+								"您还没有登录，请输入crazyit.org,leegang登录系统");
+							//直接返回login的逻辑视图
+							return Action.LOGIN;
+						}
+					}
+				配置:
+					
+					<package name="lee" extends="struts-default">
+						<!-- 用户拦截器定义在该元素下 -->
+						<interceptors>
+							<!-- 定义了一个名为authority的拦截器 -->
+							<interceptor name="authority" 
+							class="org.crazyit.app.interceptor.AuthorityInterceptor"/>
+						</interceptors>
+
+						<!-- 定义全局Result -->
+						<global-results>
+							<!-- 当返回login视图名时，转入login.jsp页面 -->
+							<result name="login">/WEB-INF/content/login.jsp</result>
+						</global-results>
+
+						<action name="loginPro" class="org.crazyit.app.action.LoginAction">
+							<result name="error">/WEB-INF/content//error.jsp</result>
+							<result name="success">/WEB-INF/content/welcome.jsp</result>
+						</action>
+						<!-- 定义一个名为viewBook的Action，其实现类为ActionSupport -->
+						<action name="viewBook">
+							<!-- 返回success视图名时，
+								转入/WEB-INF/content/viewBook.jsp页面 -->
+							<result>/WEB-INF/content/viewBook.jsp</result>
+							<interceptor-ref name="defaultStack"/>
+							<!-- 应用自定义拦截器 -->
+							<interceptor-ref name="authority"/>
+						</action>
+						<action name="*">
+							<result>/WEB-INF/content/{1}.jsp</result>
+						</action>
+					</package>

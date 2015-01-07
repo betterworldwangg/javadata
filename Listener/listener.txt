@@ -1,0 +1,19 @@
+ServletAPI提供了大量监听器来监听Web应用的内部事件,从而允许当Web内部事件发生时回调事件监听内的方法:
+使用Listener:
+	>定义Listener实现类:	(需要实现相应的事件监听器接口
+				常用Web事件监听器接口:
+				>ServletContextListener:监听web应用的启动和关闭
+				>ServletRequestListener:监听用户请求
+				>HttpSessionListener:监听用户session的开始和结束
+				>ServletContextAttributeListener:监听ServletContext范围(application)内属性的改变
+				>ServletRequestAttributeListener:监听ServletRequest范围(request)内属性的改变
+				>HttpSessionAttributeListener:监听HttpSession范围（session）内属性的改变)
+
+	>配置Listener:		(只要简单地指定Listener实现类即可,不能配置初始化参数)
+				
+		>Annotation:	使用@WebListener修饰Listener实现类即可
+		>web.xml:
+				<listener>
+					<!-- 指定Listener的实现类 -->
+					<listener-class>lee.GetConnListener</listener-class>
+				</listener>

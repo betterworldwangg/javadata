@@ -1,0 +1,179 @@
+1。大小些敏感
+大家知道Query是对大小写不敏感的，但是在HQL（前面提到它是OO的）中那么对象类的名称和属性确实大小写敏感的（符合java编程语法）。
+如：sElect cat.name from Cat as cat和select cat.name from Cat as cat是一样的
+但是：
+sElect cat.name from CAT as cat和select cat.name from Cat as cat确实不一样的。
+
+2。from语句
+最简单的：
+from eg.Cat 
+它只是简单的返回所有eg.Cat的实例
+通常我们此时会为eg.Cat其个别名，因为在query的其余部分可能会用到(参看上边关于大小写
+敏感时的例子情形)，如：
+from eg.Cat as cat 这里as可以省略。
+上边只是单表查询，多表的情况如下写法：
+from eg.Cat,eg.Dog
+from eg.Cat as cat,eg.Dog as dog
+
+3。join相关
+(inner) join
+left (outer) join
+right (outer) join
+full join
+HQL同样对SQL中的这些特性支持
+下面插播一个小话题，关于上边的那些特性，我一直都没怎么用，今天既然说到这里，就想
+把上边的几个特性的用法说一下，也算对自己的一个补充：
+假设有两个表：部门、员工，下面列举一些数据：
+员工(Employee)：
+ID Name DepNo
+001 Jplateau 01
+002 Jony 01
+003 Camel 02
+部门(Department)：
+ID Name
+01 研发部
+02 营销部
+
+在Hibernate中我们操纵的都是对象，所以我们操纵的是部门类和员工类
+1).(inner) join
+select employee.ID as id1,employee.Name as name1,department.ID as id2,department.Name
+as name2 from Employee as employee join Department as department on employee.DepNo=
+department.ID (注重到条件语句我用on 没有用where)
+那么执行结果是什么呢？
+id1 name1 id2 name2
+++++++++++++++++++++++++++++++++++++++
+001 Jplateau 01 研发部
+002 Jony 01 研发部
+
+2).left (outer) join
+select employee.ID as id1,employee.Name as name1,department.ID as id2,department.Name
+as name2 from Employee as employee left join Department as department on employee.DepNo=
+department.ID 
+那么执行结果又该是什么呢？
+id1 name1 id2 name2
+++++++++++++++++++++++++++++++++++++++
+001 Jplateau 01 研发部
+002 Jony 01 研发部 
+003 Camel null null 
+{就是说此时我要已第一个表的记录多少为准，第二个表中没有相应纪录的时候填充null} 
+3). right (outer) join
+select employee.ID as id1,employee.Name as name1,department.ID as id2,department.Name
+as name2 from Employee as employee right join Department as department on employee.DepNo=
+department.ID 
+那么执行结果又该是什么呢？
+id1 name1 id2 name2
+++++++++++++++++++++++++++++++++++++++
+001 Jplateau 01 研发部
+002 Jony 01 研发部 
+null null 02 营销部 
+{就是说此时我要已第二个表的记录多少为准，第一个表中没有相应纪录的时候填充null} 
+
+4。select语句
+就是要确定你要从查询中返回哪些对象或者哪些对象的属性。写几个例子吧：
+select employee form Employee as employee 
+select employee form Employee as employee where employee.Name like 'J%'
+select employee.Name form Employee as employee where employee.Name like 'J%'
+select employee.ID as id1,employee.Name as name1,department.ID as id2,department.Name
+as name2 from Employee as employee right join Department as department on employee.DepNo=
+department.ID 
+
+select elements(employee.Name) from Employee as employee 
+（不明白elements到底是做什么用的？望给于说明） 
+等等
+5。数学函数
+JDO目前似乎还不支持此类特性。
+avg(...), sum(...), min(...), max(...) 
+
+count(*) 
+
+count(...), count(distinct ...), count(all...) 
+
+其用法和SQL基本相同
+
+select distinct employee.name from Employee as employee 
+select count(distinct employee.name),count(employee) from Employee as employee 
+
+6。polymorphism (暂时不知道如何解释？)
+from com.test.Animal as animal
+不光得到所有Animal得实例，而且可以得到所有Animal的子类（假如我们定义了一个子类Cat）
+一个比较极端的例子
+from java.lang.Object as o
+可以得到所有持久类的实例
+
+7。where语句
+定义查询语句的条件，举几个例子吧：
+from Employee as employee where employee.Name='Jplateau'
+from Employee as employee where employee.Name like 'J%'
+from Employee as employee where employee.Name like '%u'
+在where语句中“=”不光可以比较对象的属性，也可以比较对象，如：
+select animal from com.test.Animal as animal where animal.name=dog
+
+8。表达式
+
+在SQL语句中大部分的表达式在HQL中都可以使用：
+mathematical Operators +, -, *, / 
+
+binary comparison operators =, >=, <=, <>, !=, like 
+
+logical operations and, or, not 
+
+string concatenation 
+
+SQL scalar functions like upper() and lower() 
+
+Parentheses ( ) indicate grouping 
+
+in, between, is null 
+
+JDBC IN parameters ? 
+
+named parameters :name, :start_date, :x1 （这种应该是另一种"?"的变通解决方法）
+
+SQL literals 'foo', 69, '1970-01-01 10:00:01.0' 
+
+Java public static final constants eg.Color.TABBY 
+
+其他不必解释了，在这里我只想对查询中的参数问题说明一下：
+大家知道在SQL中进行传递参数进行查询的时候，我们通常用PReparedStatement，在语句中写一大堆的“？”，
+在hql中也可以用这种方法，如：
+List mates = sess.find(
+"select employee.name from Employee as employee " +
+"where employee.Name=? ",
+name,
+Hibernate.STRING
+);
+(说明：上面利用session里的find方法，在hibernate的api Session中重载了很多find方法，它可以满足你多种形式的查询)
+上边是一个参数的情形，这种情况下紧接着引入参数和定义参数的类型，当为多个参数，调用另一个find方法，它的后两个
+参数都是数组的形式。
+
+还有另外一种方法来解决上边的问题，JDO也有这样的方法，不过和hibernate的表现形式上有差别，但他们两个骨子里却是
+一样的，如：
+Query q = sess.createQuery("select employee.name from Employee as employee where employee.Name=:name");
+q.setString("name", "Jplateau");
+//当有多个参数的时候在此逐一定义
+Iterator employees = q.iterate(); 
+
+9。order 语句
+和sql语句没什么差别，如：
+select employee.name from Employee as employee where employee.Name like 'J%' order by employee.ID desc (或者asc)
+
+10。group by 语句
+同样和sql语句没什么差别，如：
+
+select employee.name,employee.DepNo from Employee as employee group by employee.DepNo
+
+select foo.id, avg( elements(foo.names) ), max( indices(foo.names) ) from eg.Foo foo group by foo.id
+{Note: You may use the elements and indices constrUCts inside a select clause, even on databases with no subselects.}
+谁帮我解释一下上边两句，谢过！
+
+11。子查询
+hibernate同样支持子查询，写几个例子：
+
+from eg.Cat as fatcat where fatcat.weight > ( select avg(cat.weight) from eg.DomesticCat cat )
+
+小节：
+其实HQL和SQL是非常相似的，在写的时候你只要时刻想到对象的概念，那么你完全可以用SQL的思想来写HQL.
+
+参考资源：Hibernate参考手册第七章以及第九章，建议由时间的并且要用hibernate开发项目的朋友仔细研读该手册。 
+
+资料引用:http://www.knowsky.com/364217.html

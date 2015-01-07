@@ -1,0 +1,575 @@
+drop database 数据库名;			 //删除数据库
+create database [IF NOT EXISTS] 数据库名;	 //创建新数据库
+use 数据库名					 //进入数据库
+show tables					 //显示数据库中所有数据表
+desc 表名					 //插看指定数据表表结构
+
+/***********************************************
+MySQL两种存储机制:
+>MyISAM:对事物支持不好
+>InnoDB:提供事物安全的存储机制。InnoDB通过建立行级锁来保证事物完整性,并以Orcal风格的共享锁来处理select语句,系统默认启动InnoDB存储机制,如果
+不想使用InnoDB表,则可以使用skip-innodb选项
+
+如果需要在建表是显示指定存储机制，则可在标准建表语法的后面添加下面任何一句:
+>ENGINE=MyISAM————强制使用MyISAM存储机制
+>ENGINE=InnoDB————强制使用InnoDB存储机制
+********************************************/
+
+
+/***********************************************
+DML语句:insert 、update 、delete
+DDL语句:create、alter、drop、truncate
+DCL语句:grant、revoke
+事物控制:commit、rollback、savepoint
+********************************************/
+
+
+/***********************************************
+SQL语句关键字不区分大小写。
+
+SQL标识符命名规则如下:
+>必须以字母开头
+>包括字母、数字、（#_$）
+>不要使用当前数据库的关键字、保留字,通常建议使用多个单词连缀而成,之间以_分隔
+>同一模式下的对象不应该同名,这里的模式指的是外模式。
+********************************************/
+
+
+/***********************************************
+大部分数据库支持下面五种完整性约束:
+>NOT NULL:
+>UNIQUE:唯一约束
+>PRIMARY KEY:主键
+>FOREIGN KEY:外键
+>CHECK:检查
+********************************************/
+
+
+/***********************************************
+SQL中的null具有如下特征:
+>所有数据类型的值都可以是null
+>与java类似的是,空字符串不等于null,0也不等于null
+********************************************/
+
+
+/********************************************
+
+DDL:	(操作表)
+
+	建表:
+		create table test
+		(
+		  test_id int,
+		  test_price decimal,
+		  test_name varchar(255) default 'xxx',
+		  test_desc text,
+		  test_img blob,
+		  test_date datetime
+		);
+
+	子查询建表:
+		create table haha
+		as
+		select * from user_inf;
+
+	为数据表增加字段:
+		alter table hehe
+		add hehe_id int;
+		alter table hehe
+		add
+		(
+		  aaa varchar(255) default 'xxx',
+		  bbb varchar(255) 
+		)
+
+	修改列定义:
+		alter table hehe
+		modify hehe_id varchar(255);
+		alter table hehe
+		modify bbb int;
+
+	删除列:
+		alter table hehe
+		drop aaa;
+
+	删除表:
+		drop table wawa;
+
+	truncate表:
+		truncate 表名;
+
+
+
+DML:	（操作数据）
+
+	insert into:
+		insert into table_name(column....)
+		values(value.....);
+		例如:
+			insert into teacher_table2(teacher_name)
+			values('xyz');
+			insert into teacher_table1
+			values(null,'abc');
+		带子查询插入:
+			insert into student(student_name)
+			select teacher_name from teacher_table2;
+		MYSQL:
+			insert into teacher_table2
+			values(null,'yeeku'),
+			(null,'Sharfly');
+	update:
+		update teacher_table2
+		set teacher_name='孙悟空';
+
+		带条件:
+			update teacher_table2
+			set teacher_name='猪八戒'
+			where teacher_id>1;
+	delete from:
+		delete from table_name
+		[WHERE condition];
+		例如:
+			delete from student_table2;
+			delete from teacher_table2
+			where teacher_id>2;
+
+********************************************/
+
+
+
+/***********************************************
+NOT NULL约束:
+	建表时:
+		create table hehe
+		(
+		  hehe_id int not null;
+		  hehe_name varchar(255) default 'xyz' not null;
+		  hehe_gender varchar(2) null;
+		)
+	修表时:
+		alter table hehe
+		modify hehe_gender varchar(2) not null;
+		alter table hehe
+		modify hehe_name varchar(2) null;
+UNIQUE约束:
+	建表时:
+		列级约束建立:
+			create table  unique_test
+			(
+			  test_id int not null;
+			  test_name varchar(255) unique
+			);
+		表级约束建立:
+			create table unique_test2
+			(
+			  test_id int not null,
+			  test_name varchar(255),
+			  test_pass varchar(255),
+			  unique (test_name),
+			  constraint test2_uk unique(test_pass)
+			);
+			多列组合:
+				create table unique_test3
+				(
+				   test_id not null,
+				   test_name varchar(255),
+				   test_pass varchar(255),
+				   constraint test3_uk unique(test_name,test_pass)
+				);
+	修表时:
+		表级:add关键字:
+			alter table unique_test3
+			add unique(test_name,test_pass);
+		列级:modify关键字:
+			alter table haha
+			modify test_name varchar(255) unique;
+
+PRIMARY KEY:
+	建表时:
+		列级:
+			create table  primary_test
+			(
+			  test_id int primary key,
+			  test_name varchar(255)
+			);
+		表级:
+			create table primary_test2
+			(
+			  test_id int not null,
+			  test_name varchar(255),
+			  test_pass varchar(255),
+			  constraint test2_pk primary key(test_id)
+			);
+			多列组合:
+			create table  primary_test3
+			(
+			  test_name varchar(255),
+			  test_pass varchar(255),
+			  primary key(test_name , test_pass)
+			);
+		
+	修表时:
+		表级:add关键字:
+			alter table primary_test3
+			add primary key(test_name,test_pass);
+		列级:modify关键字:
+			alter table primary_test3
+			modify test_name varchar(255) primary key;
+
+	(如果某个数据列的类型是整型,而且该列作为主键,则可指定该列具有自增长功能。
+	 如MYSQL:
+		create table primary_test4
+		(
+		  test_id int auto_increment primary key,
+		  test_name varchar(255),
+		  test_pass varchar(255)
+		);
+	)
+	
+FOREIGN KEY:
+		（从表参照的只能是主表主键列或唯一键列,通常在多的一端增加外键列）
+	建表时:
+		列级:(mysql无法生效)
+			先建主表:
+				create table teacher_table
+				(
+				  teacher_id int auto_increment,
+				  teacher_name varchar(255),
+				  primary key(teacher_id)
+				);
+			再建从表:
+				create table student_table1
+				(
+				  student_id int auto_increment primary key,
+				  student_name varchar(255),
+				  java_teacher int references teacher_table(teacher_id)
+				);
+		表级:
+			先建主表:
+				create table teacher_table
+				(
+				  teacher_id int auto_increment,
+				  teacher_name varchar(255),
+				  primary key(teacher_id)
+				);
+			再建从表:
+				create table student_table1
+				(
+				  student_id int auto_increment primary key,
+				  student_name varchar(255),
+				  java_teacher int,
+				  foreign key(java_teacher) references teacher_table(teacher_id)
+				);
+			指定约束名:
+				先建主表:
+				create table teacher_table
+				(
+				  teacher_id int auto_increment,
+				  teacher_name varchar(255),
+				  primary key(teacher_id)
+				);
+				再建从表:
+				create table student_table1
+				(
+				  student_id int auto_increment primary key,
+				  student_name varchar(255),
+				  java_teacher int,
+				  constraint student_teacher_fk foreign key(java_teacher) references teacher_table(teacher_id)
+				);
+			多列组合:
+				create table  teacher_table3
+				(
+				  teacher_name varchar(255),
+				  teacher_pass varchar(255),
+				  primary key(teacher_name , teacher_pass)
+				)
+				create table student_table3
+				(
+				  student_id int auto_increment primary key,
+				  student_name varchar(255),
+				  student_pass varchar(255),
+				  java_teacher_name varchar(255),
+				  java_teacher_pass varchar(255),
+				  foreign key(java_teacher_name,java_teacher_pass) references teacher_table3(teacher_name,teacher_pass)
+				);
+	修表时:
+		alter table student_table3
+		add foreign key(java_teacher_name,java_teacher_pass)
+		references teacher_table3(teacher_name , teacher_pass);
+	自关联:
+		create table foreign_test
+		(
+		  foreign_id int auto_increment primary key,
+		  foreign_name varchar(255),
+		  refer_id int,
+		  foreign key(refer_id) references foreign_test(foreign_id)
+		)
+	级联删除:
+		create table teacher_table4
+		(
+		  teacher_id int auto_increment,
+		  teacher_name varchar(255),
+		  primary key(teacher_id)
+		)
+		create table student_table4
+		(
+		  student_id int auto_increment primary key,
+		  student_name varchar(255),
+		  java_teacher int,
+		  foreign key(java_teacher) references teacher_table4(teacher_id)
+			on delete cascade #也可用 on delete set null
+		)
+CHECK:
+	create table check_test
+	(
+	  emp_id int auto_increment,
+	  emp_name varchar(255),
+	  emp_salary decimal,
+	  primary key(emp_id),
+	  check(emp_salary>0)
+	);
+
+
+删除约束:
+		alter table 表名
+		drop constraint 约束名;
+
+	MYSQL:
+		alter table unique_test3
+		drop index test3_uk;
+	删除主键约束:
+		alter table primary_test3
+		drop primary key;
+	删除外键约束:
+		alter talbe student_table3
+		drop foreign key student_table3_ibfk_1;
+********************************************/
+
+
+/********************************************
+索引:
+	创建:
+		单列:
+			create index index_name
+			on table_name(column……);
+			例如:
+			create index emp_last_name_idx
+			on employee(last_name);
+		多列:
+			create index emp_last_name_idx2
+			on employee(first_name,last_name);
+	删除:
+		MYSQL:
+			drop index 索引名 on 表名
+			例如:
+			drop index emp_last_name_idex2
+			on employee
+		（有些数据库删除索引时 无需指定表名例如:Oracle）
+********************************************/
+
+
+/********************************************
+视图:
+	创建:
+		create or replace view 视图名
+		as
+		subquery
+		例如:
+			create or replace view view_test
+			as
+			select teacher_name , teacher_pass from teacher_table;
+		MYSQL:
+			create or replace view view_test
+			as
+			select teacher_name , teacher_pass from teacher_table
+			#指定不允许修改该视图的数据
+			with check option;
+		（大部分数据库采用with check option来强制不允许修改视图的数据,但Oraclec采用with read only来强制不允许修改视图的数据）
+	删除:
+		drop view 视图名;
+********************************************/
+
+
+/********************************************
+select:
+	单表查询:
+			select * from teacher_table;
+
+		where:
+			select student_name from student_table
+			where java_teacher>3;
+		as:
+			select * from teacher_id+5 as MY_ID 
+			from teacher_table;
+		between:
+			select * from student_table 
+			where student_id between 2 and 4;(2<=student_id<=4)
+		in:
+			select * from student_table 
+			where student_id in(2,4);
+		like:
+			select * from student_table
+			where student_name like '孙%';	(%代表任意多个字符,_代表一个字符,如果使用"%_"本身,使用escape关键字进行显示转义,如下:
+							
+							select * from student_table
+							where student_name like '\_%' escape '\';
+							)
+		
+		is null:
+			select * from student_table
+			where student_name is null;
+
+		and:
+			select * from student_table
+			where student_name like '__' and student_id>3;
+		
+		or:
+			
+			select * from student_table
+			where student_name like '__' or student_id>3;
+
+		not:
+			
+			select * from student_table
+			where not student_name like '\_%' escape '\';
+			
+		order by:   (对查询结果排序)
+			select * from student_table
+			order by java_teacher;
+
+			select *　from student_table
+			obder by java_teacher desc , student_name;  (asc升序,desc降序)
+
+	多表连接查询:
+		SQL92:
+			select column1 , column2...
+			from table1 , table2...
+			[where join_condition]
+			例:
+			  等值:
+				select s.* , teacher_name
+				from student_table s , teacher_table t
+				where s.java_teacher = t.teacher_id;
+			 非等值:
+				select s.* , teacher_name
+				from student_table s , teacher_table t
+				where s.java_teacher > t.teacher_id;
+				
+				select s.* , teacher_name
+				from student_table s , teacher_table t
+				where s.java_teacher = t.teacher_id and student_name is not null;
+			笛卡尔:
+				select s.* , teacher_name
+				from student_table s , teacher_table t;
+
+			外连接:
+				
+				select s.* , teacher_name
+				from student_table s , teacher_table t
+				where s.java_teacher = t.teacher_id(*);
+		SQL99:
+			笛卡尔:
+				select s.* , teacher_name
+				from student_table s
+				cross join teacher_table t;
+			自然连接:
+				select s.* , teacher_name
+				from student_table s
+				#natural join 使用两个表中的同名列作为连接条件,没有同名列与笛卡尔连接完全相同 
+				natural join teacher_table t;
+			using 字句连接:
+				select s.* ,teacher_name
+				from student_table s
+				join teacher_table t
+				using(teacher_id));(如果两个表有多个同名列,自然连接会将所有同名列作为连接条件,而using字句连接可指定使用哪些同名列作为连接条件,如果没有连接条件,会报错)
+			on字句连接:
+				select s.* , teacher_name
+				from student_table s
+				join teacher_table t
+				on s.java_teacher = t.teacher_id;(该连接完全可以代替SQL92中的等值、非等值连接)
+			外连接:		(也是通过on字句指定,既可以是等值也可是非等值连接)
+				右外:
+					select s.* , teacher_name
+					from student_table1 s
+					right join teacher_table t
+					on s.java_teacher < t.teacher_id;
+				左外:
+					select s.* , teacher_name
+					from student_table1 s
+					left join teacher_table t
+					on s.java_teacher > t.teacher_id;
+				全外:
+					select s.* , teacher_name
+					from student_table s
+					full join teacher_table t
+					on s.java_teacher = t.teacher_id;
+
+	
+	子查询:
+		数据表:
+			select * from (select * from studentt_table) t
+			where t.java_teacher > 1;
+		where:
+			select * 
+			from student_table
+			where java_teacher >
+			(select teacher_id
+			from teacher_table
+			where teacher_name='YeeKu');
+
+			in:
+				select * 
+				from student_table
+				where student_id in
+				(select teacher_id
+				from teacher_table);
+			=any:	(>、>=、<、<=、=)
+				select * from student_table
+				where student_id 
+				=any(select teacher_id
+				from teacher_table);
+			>all:	(>、>=、<、<=、=)
+				select * from student_table
+				where student_id 
+				>all (select teacher_id
+				from teacher_table);
+			
+				select * from student_table
+				where(student_id , student_name)
+				=any(select teacher_id , teacher_name from teacher_table);
+********************************************/
+
+
+/********************************************
+集合运算:	(两个结果集数据列数量必须相等,数据列的数据类型必须相等)
+	union:
+		select语句 union select语句;
+		例:
+		   select * from teacher_table
+		   union
+		   select student_id , student_name from student_table;
+	minus:
+		select语句 minus select语句;
+		例:
+		   select student_id , student_name from student_table
+		   minus
+		   select teacher_id , teacher_name from teacher_table;
+	intersect:
+		select语句 intersect select语句;
+		例:
+		   select student_id , student_name from student_table
+		   intersect
+		   select teacher_id , teacher_name from teacher_table;
+
+		   select student_id , student_name from student_table where student_id<4
+		   intersect
+		   select teacher_id , teacher_name from teacher_table teacher_name like '李%';
+
+		   上面语句改写如下:
+
+		   select student_id , student_name from student_table
+		   join
+		   teacher_table
+		   on(student_id=teacher_id and student_name=teacher_name)
+		   where student_id<4 and teacher_name like '李%';
+********************************************/

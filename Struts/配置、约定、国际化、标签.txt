@@ -1,0 +1,978 @@
+Struts2应用开发步骤:
+	1.将Struts2的lib文件夹下的commons-fileupload-1.2.1.jar、commons-io-1.3.2.jar、freemarker-2.3.16.jar、javassist-3.7.ga.jar、ognl-3.0.jar、struts2-core-2.2.1.jar、xwork-core-2.2.1.jar复制到Web应用WEB-INF/lib路径下
+	2.在web.xml中配置核心Filter:
+			<filter>
+				<filter-name>struts2</filter-name>
+				<filter-class>org.apache.struts2.dispatcher.ng.filter.StrutsPrepareAndExecuteFilter</filter-class>
+			</filter>
+			<!-- 让Struts 2的核心Filter拦截所有请求 -->
+			<filter-mapping>
+				<filter-name>struts2</filter-name>
+				<url-pattern>/*</url-pattern>
+			</filter-mapping>
+	3.定义发送请求的表单
+	4.定义处理用户请求的Action
+	5.配置Action,放在类加载路径的struts.xml中配置:	(也可使用约定)
+		struts.xml:
+			<action name="login" class="....">
+			...
+			</action>
+	6.配置处理结果与视图资源的对应:
+		struts.xml:
+			<action name="login" class="org.wang.app.action.LoginAction">
+				<result name="input">/login.jsp</result>
+				<result name="success">/welcome.jsp</result>
+				...
+			</action>
+	7.编写视图资源	（如果Action需要将一些数据传入视图资源,可借助与OGNL表达式）
+***********************************************************************************************/
+常量配置:
+	struts.xml:(一般处于开发模式应,配置常量为开发模式更方便)
+		<constant name="struts.devMode" value="true"/>
+		<constant name="struts.custom.i18n.resources" value="mess"/>	(指定了国际化资源文件的baseName为mess)
+	web.xml:
+		<?xml version="1.0" encoding="GBK">
+		<web-app ... version="3.0">
+			<filter>
+				<filter-name>struts2</filter-name>
+				<filter-class>org.apache.struts2.dispatcher.ng.filter.StrutsPrepareAndExecuteFilter</filter-class>
+				<init-param>
+					<param-name>struts.custom.i18n.resources</param-name>
+					<param-value>mess</param-value>
+				</init-param>
+			</filter>
+			....
+		</web-app>
+包含其他配置:
+	struts.xml:
+		<include file="struts-part1.xml"/>
+***********************************************************************************************/
+实现Action:	(无需继承任何类,实现任何接口,如果包含HTTP请求参数,重要的是包含getter,setter方法,可封装请求参数,和处理结果,
+		包含execute()方法处理用户请求,可通过<s:property..>输出处理结果,
+		通常继承ActionSupport,ActionSupporty已经提供了许多默认方法,直接继承该类将简化开发,如果没有提供Action,默认使用ActionSupport)
+		Action访问ServletAPI:	(可通过ActionContext来访问ServletAPI,操作request、session、application范围的属性)
+				创建ActionContext的方式通常为:
+					ActionContext ctx = ActionContext.getContext();
+		Action直接访问S	ervletAPI:	（通过实现接口）
+				>ServletContextAware:	(可以访问到ServletContext)
+				>ServletRequestAware:	（可以访问到HttpServletRequest）
+				>ServletResponseAware:	（可以访问到HttpServletResponse）（即使获取了HttpServletResponse也不可以生成服务器响应,Action只是业务控制器）
+		使用ServletActionContext访问ServletAPI:(Struts提供了ServletActionContext工具类)
+***********************************************************************************************/		
+配置Action:
+	包和命名空间:
+		1.每个package配置一个包,使用包来组织Action,<action../>在<package../>下
+		2.Struts2的核心是Action、拦截器等
+		3.每个包是多个Action、多个拦截器、多个拦截器引用的集合
+		4.name属性该包唯一标识
+		5.extends属性指定该包继承另一个包,可以继承到拦截器、拦截器栈、action等配置
+		6.abstract="true"指定抽象包
+		7.namespace属性指定该包的命名空间
+		8.由于Struts2的配置文件是从上到下处理,所以父包应该在子包前面定义
+		9.通常继承struts-default包
+	Action的基本配置:	(虽然Action的name命名可以非常灵活,但如果name属性中包含（.）或（-）则可能引发一些未知异常)
+		<package>
+			<action name="login" class="lee.LoginAction"/>
+			....
+		</package>
+	Action的动态方法调用:	(用户通常不同按钮提交同一个表单)(开启系统动态调用通过设置struts.enable.DynamicMethodInvocation常量)
+		<form action="login">
+			...
+			<input type="submit" value="登录"/>
+			<input type="submit" value="注册" onclick="regist()"/>
+		</form>
+		function regist()	(action="ActionName!methodName"	(ActionName指定提交包那个Action,而methodName指定提交到那个方法))
+		{...
+			targetForm.action="login!regist"; (或target.action=regist)
+		}
+		public class LoginRegistAction extends ActionSupport
+		{
+			....
+			public String regist()
+			{....
+			  return ..
+			}
+			public String execute()
+			{
+			....
+			return ...
+			}
+		}
+		
+		<action name="login" class="wang.app.action.LoginRegistAction">
+		....
+		</action>
+		<action name="regist" class="wang.app.action.LoginRegistAction" method="regist">
+		....
+		</action>
+
+		通配符:
+			<action name="*Action" class="wang.app.action.LoginRegist" method={1}>
+				...
+			</action>
+		
+			<action name="*Action" class="wang.app.action.{1}Action">
+				...
+			</action>
+
+			<action name="*_*" method="{2}" class="wang.app.{1}">
+				<result>/{2}.jsp</result>
+			</action>
+
+			<action name="*">
+				<result>/{1}.jsp</result>
+			</action>
+
+		(对于只是简单的超级链接,可以定义名为"*"的Action（该Action应该放在最后定义）)
+		（如果URL为abcAction.action的请求,如果struts.xml中有abcAction则由它处理,否则对于通配符匹配则按顺序,先找到先处理）
+	
+	配置默认Action:
+		<package name="wang" extends="action_default">
+			<default-action-ref name="simpleViewResultAction">
+			...
+			<action name="simpleViewResultAction" class="....">
+				<result../>
+				...
+			</action>
+			...
+		</package>
+	配置Action的默认处理类:
+		在struts-default.xml中
+		<package name="struts-default" abstract="true">
+			...
+			<default-class-ref class="com.opensymphony.xwork2.ActionSupport">
+		</package>
+		（完全可以在struts.xml中配置自己想要的,覆盖掉它）
+***********************************************************************************************/	
+配置处理结果:
+	>局部结果:	(<result../>作为<action../>元素的子元素)
+	>全局结果:	(<result../>作为<global-results../>元素的子元素)(对所有Action都有效,如果局部与之同名,全局会被覆盖表)
+			<global-results>
+				<!-- 配置Result，使用OGNL表达式来指定视图资源 -->
+				<result name="success">/${target}.jsp</result>		
+			</global-results>
+	
+
+	局部:	(默认使用dispatcher类型,返回success视图)
+		>name:	逻辑视图名
+		>type:	结果类型
+
+		<action name="login" class="wang.LoginAction">
+			<result name="success" type="dispatcher">/thank_you.jsp</result>
+		</action>
+		通常使用方式:
+			<action name="login" class="wang.LoginAction">
+				<result name="success">/thank_you.jsp</result>
+				...
+			</action>
+		最简洁方式:
+			<action name="login" class="wang.LoginAction">
+				<result>/thank_you.jsp</result>
+			</action>
+		
+		Struts2内建的支持结果类型:
+			>chain:	Action链式处理
+			>dispatcher:	JSP作为视图
+			>freemarker:	FreeMarker模板作为视图
+			>httpheader:	用于控制特殊的HTTP行为
+			>redirect:	直接跳转到其他URL结果类型	(会都是所有请求参数、请求属性)
+			>redirectAction:直接跳转到其他Action			
+			>stream:	向浏览器返回一个InputStream（一般用于文件下载）
+			>velocity:	Velocity模板作为视图
+			>xslt:		用于与XML/XSLT整合的结果类型
+			>plainText:	显示某个页面原始代码的结果类型
+
+		Action属性值决定物理视图资源:
+			${属性名.属性名.属性名}
+
+			public class MyAction extends ActionSupport
+			{
+				private String target;
+				...
+				public String execute()
+				{
+					...
+					return ...
+				}
+			}
+
+			<action name="MyAction" class="wang.app.MyAction">
+				<result>/${target}.jsp</result>
+			</action>
+		动态结果:
+			<action name="*">
+				<result>/{1}.jsp</result>
+			</action>
+		
+使用PreResultListener:
+	(它是一个监听器接口,它可以在Action完成控制处理之后,系统转入实际的物理视图之间被回调)
+		
+	public class LoginRegistAction 
+		extends ActionSupport
+	{
+		...
+		public String execute() throws Exception
+		{
+			ActionInvocation invocation = ActionContext
+				.getContext().getActionInvocation();
+			invocation.addPreResultListener(new PreResultListener() 
+			{
+				public void beforeResult(ActionInvocation invocation, 
+					String resultCode) 
+				{
+					System.out.println("返回的逻辑视图名字为："
+						+ resultCode);
+					//在返回Result之前加入一个额外的数据。
+					invocation.getInvocationContext().put("extra"
+						, new java.util.Date() + "由" 
+						+ resultCode + "逻辑视图名转入");
+					//也可加入日志等
+				}
+			});
+		}
+		...
+	}
+***********************************************************************************************/
+
+配置异常处理:	(局部异常与全局异常配置同一异常类型时,局部会覆盖全局异常)
+		（全局异常的result属性值通常不要使用局部结果,局部异常属性值既可使用全局也可使用局部异常结果）
+		异常的配置:
+			<global-results>
+				<!-- 定义当sql、root两个逻辑异常都对应exception.jsp页 -->
+				<result name="sql">/exception.jsp</result>
+				<result name="root">/exception.jsp</result>
+			</global-results>
+
+			<!-- 定义全局异常映射 -->
+			<global-exception-mappings>
+				<!-- 当Action中遇到SQLException异常时，
+					系统将转入name为sql的结果中-->
+				<exception-mapping exception="java.sql.SQLException" result="sql"/>
+				<!-- 当Action中遇到Exception异常时，
+					系统将转入name为root的结果中-->
+				<exception-mapping exception="java.lang.Exception" result="root"/>
+			</global-exception-mappings>
+
+			<action name="login" class="org.crazyit.app.action.LoginAction">
+				<!-- 定义局部异常映射， 当Action中遇到MyException异常时，
+					系统将转入name为my的结果中-->
+				<exception-mapping exception="org.crazyit.app.exception.MyException"
+					result="my"/>
+				<!-- 定义三个结果映射 -->
+				<result name="my">/exception.jsp</result>
+				<result name="error">/error.jsp</result>
+				<result name="success">/welcome.jsp</result>
+			</action>
+		异常信息的输出:
+
+			<s:property value="exception"/>:	输出异常对象本身
+			<s:property value="exceptionStack"/>:	输出异常堆栈信息
+			<s:property value="exception.message"/>:输出异常的message信息
+
+***********************************************************************************************/
+
+Convention插件与"约定"支持:	(使用Convention,必须将Struts2下的struts2-convention-plugin-*.*.*.jar复制到WEB-INF/lib路径下)
+	Action的搜索和映射约定:	（它会自动搜索位于action、actions、struts、struts2包下的所有java类）
+			会把如下java类当做Action:
+				>所有实现了com.opensymphony.xwork2.Action的java类
+				>所有以Action结尾的java类
+					:wang.app.actions.LoginAction
+					 wang.app.actions.books.getBooks	(该类实现了com.opensymphony.xwork2.Action接口)
+					 wang.app.action.LoginAction
+					 wang.app.struts.auction.bid.BidAction
+					 wang.app.struts2.wage.hr.AddEmployeeAction
+		
+
+				允许设置如下三个常量:
+					>struts.convention.exclude.packages:指定不扫描哪些包下的java类,位于这些包下的java类不会自动映射成Action
+					>struts.convention.package.Locators:指定某包作为根包（对于actions.wang.LoginAction类,按约定映射为/wang/login,如果该常量设为wang,则该Action将会映射为/login）
+					>struts.convention.action.packages:Convention除了扫描action.actions.struts.struts2包,还扫描该常量指定的一个或多个包
+
+			将扫描包映射为命名空间:	(会将action、actions、struts、struts2映射为根命名空间)
+				:wang.app.actions.LoginAction 映射到/
+				 wang.app.actions.books.GetBooks 映射到/books
+				 wang.app.struts2.wage.hr.AddEmployeeAction 映射到/wage/hr
+
+			
+			Action类名映射为Action的name属性:
+				1.如果Action类型包含Action后缀,将Action后缀去掉,否则不做任何处理
+				2.得到第1步的结果,将驼峰写法转换为中划线写法
+					:wang.app.actions.LoginAction 映射到/login.action
+					 wang.app.actions.books.GetBooks 映射到/books/get-books.action
+					  wang.app.struts2.wage.hr.AddEmployeeAction 映射到/wage/hr/add-employee.action
+	按约定映射Result:
+			(Convention总会到Web应用的WEB-INF/content路径下定位物理资源,约定是:
+			 actionName+result+suffix,当逻辑视图找不到对应视图资源时,Convention会自动使用actionName+suffix作为视图资源,suffix指的是视图技术)
+			
+			Action的URL			返回逻辑视图名			结果类型		对应物理视图
+			   /login			    success			Dispatcher		\WEB-INF\content\login-success.jsp
+			   /wang/get-book		    success			Dispatcher		\WEB-INF\content\wang\get-book-success.jsp
+
+			
+			content
+			   |——login.jsp
+			   |——wang
+				|——get-book-success.jsp
+				
+	使用Config Browser:	(可以看到每个Action详细映射信息)
+		安装该插件:	将Struts2项目的lib目录下的struts-config-browser-plugin-*.*.*.jar文件复制到WEB-INF/lib路径下
+		首页地址:	http://localhost:8080/应用名/config-borwser/actionNames.action
+			
+	
+	Action链约定:
+		Action处理后不进入试图页面,进入另一个Action,须遵守如下约定:
+			>第一个Action返回的逻辑视图字符串没有对应逻辑视图
+			>第二个Action与第一个Action处于同一个包下
+			>第二个Action映射的URL为:firstactionName+resultCode
+			例:
+				package org.wang.action
+				...
+				public class FirstAction extends ActionSupport
+				{
+					...
+					public String execute()
+					{
+						...
+						return "second";
+					}
+				}
+				(WEB-INF/content下不要提供first-second.jsp或first.jsp,第二个Action类名应为FirstSecondAction)
+
+	Convention插入的相关常量:	(应看Struts2官方API更佳)
+	
+				
+***********************************************************************************************/————————————————————————————
+									mess_zh_CN.properties:	|loginPage=登录页面       |(该文件应放在类加载路径下)
+Struts2的国际化:	(建立在java国际化基础之上)						|succTip=欢迎您已经登录  |
+	加载全局资源文件:									|login=登录		   |
+		struts.xml:									————————————————————————————
+		<constant name="struts.custom.i18n.resources" value="messageResource"/>
+		(通过这种方式加载国际化资源文件后,Struts2应用就可以在所有地方使用了,包括JSP和Action)
+	访问国际化消息:
+			
+		>JSP中:<s:text../>该标签可指定一个name属性,该属性指定了国际化资源文件中的key
+			<s:text name="loginPage"/>
+		>Action中:可使用ActionSupport类的getText()方法,该方法可接受一个name参数,该参数指定了国际化资源文件中的key
+			getText("succTip");
+		>表单元素中的Label中:可以为该表单指定一个key属性,该key属性指定了国际化资源文件中的key
+			<s:submit key="login"/>
+	输出带占位符的国际化消息:
+		>JSP中:可通过在<s:text../>标签中使用多个<s:param../>标签来填充占位符,第一个<s:param../>填充第一个,第二个填充第二个
+		>Action中:可通过getText(String aTextName , List args)或getText(String key , String[] args),第一个元素填充第一个占位符,第二个填充第二个
+		
+	对占位符的替代方式:
+		failTip=${username},对不起,您不能登录
+		Action中:ctx.put("tip" , getText("succTip"));
+		JSP中:  <s:text name="succTip"/>
+	加载资源文件的方式:
+		包范围:		（包范围会优先于全局资源文件）
+			package_zh_CN.properties:
+				failTip=包范围消息:对不起,您不能登录
+				succTip=包范围消息:欢迎,您已经登录
+			（将该资源文件保存在WEB-INF/classes/app路径下,该资源文件就可以被位于app包及其子包下所有Action访问了）
+		Action范围:	（Action范围优先于包范围资源文件）
+			在Action类文件所在路径下建立名为ActionName_language_country.properties
+			LoginAction_zh_CN.properties:
+				failTip=Action范围消息:对不起,您不能登录
+				succTip=Action范围消息:欢迎,您已经登录
+		临时指定资源文件:
+			><s:i18n../>标签作为<s:text../>标签的父标签,则<s:text../>将会直接加载<s:i18n../>指定的资源文件
+				<s:i18n name="mess">
+					<s:text name="loginPage"/>
+				</s:i18n>
+			><s:i18n../>标签作为表单标签的父标签,则表单标签key属性将会从<i18n../>指定资源文件加载消息
+				<s:i18n name="mess">
+					<s:form action="Login">
+						...
+						<s:submit key="login"/>
+					</s:form>
+				</s:i18n>
+***********************************************************************************************/
+
+OGNL表达式语言:	(Action将数据放入其中,JSP页面可从中取出数据)
+		基本语法
+			#bar.foo.blah	(如果需要访问的属性属于根对象,则可直接访问该属性,如blah,否则必须使用一个对象名作为前缀修饰该属性,#bar.blah)
+		属性访问器:
+			Struts提供了一个特殊的OGNL PropertyAccessor(属性访问器),它可以自动搜寻Stack Context所有实体（从上而下）,直到找到与求值表达式匹配的属性
+			例:Stack Context中包含两个根实例:animal和person,这两个实例都包含"name"属性,而animal实例还有一个"species"属性,person实例还有一个"salary"属性,
+			其中animal实例是栈顶元素,而person实例在其后面
+			species		(返回animal.getSpecies()方法的返回值)
+			salary		(返回person.getSpecies()方法的返回值)
+			name		(因为Struts2先找到animal实例,返回animal.getName()方法返回值)
+			如果想取得person实例的name属性:
+					#person.name	
+				也可通过索引:
+					[0].name	(从第一个开始找,先找到animal实例,所以返回animal.getName())
+					[1].name	(从第二个开始找,先找到person实例,所以返回person.getName())
+						
+		             
+			     
+		OGNL结构:     (当系统创建了Action实例后,该Action实例已经被保存到ValueStack中,故无需书写#即可访问Action属性)
+			     
+				     |
+				     |--application		(访问ServletContext的属性,#application['foo']或#application.foo返回ServletContext的getAttribute("foo"))
+				     |
+		  (ognl的顶级对象)  |--session			(访问HttpSession的属性,#session['foo']或#session.foo返回HttpSession的getAttribute("foo"))
+		       context map---|
+				     |--value stack(root)	(根对象,访问这里的对象:${bar})
+				     |
+				     |--action (the current action)
+				     |
+				     |--request			(访问HttpServletRequest的属性,#request['foo']或#request.foo返回HttpServletRequest的getAttribute("foo"))
+				     |
+				     |--parameters		(访问HTTP请求参数,#parameter.foo或#parameter['foo']返回HttpServletRequest的getParameter("foo"))
+				     |
+				     |--attr (searches page, request, session, then application scopes)
+				     |
+
+		OGNL中集合的操作:
+			创建List:
+				{e1,e2,e3,...}
+			创建Map:
+				#{key1:value1,key2:value2,...}
+			运算符:
+				in	(判断某个元素是否在集合中)
+				not in	(判断某个元素是否不再集合中)
+			取的子集:
+				?	(取出所有符合选择逻辑的元素)
+				^	(取出符合逻辑的第一个元素)
+				$	(取出符合逻辑的最后一个元素)
+
+			例:	person.relatives.{? #this.gender == 'male'}	(取出person的所有性别为male的relatives集合)
+
+		访问静态成员:	(OGNL提供了一种可以访问静态成员的方式)
+			要使用该功能需开启:
+				<constant name="struts.ognl.allowStaticMethodAccess" value="true"/>
+			一旦开启,OGNL就可通过如下方式访问:
+				@className@staticField
+				@className@staticMethod(val...)
+				例:
+					访问系统环境变量:<s:property value="@java.lang.System@getenv('JAVA_HOME')"/>
+		Lambda表达式:
+			
+
+
+***********************************************************************************************/
+
+标签库:	（Struts2提供了标签处理类,也提供了标签库定义文件,标签库定义文件在struts2-core-*.*.*.jar的META-INF路径下）
+	使用标签库:
+		导入Struts2标签库:<%@taglib prefix="s" uri="/struts-tags"%>
+		使用:		<s:标签名.../>
+
+	控制标签:	(主要完成流程控制如分支、循环,也可完成集合的合并、排序)
+		if:	(控制选择输出的标签)
+			<s:if test="表达式">
+				标签体
+			</s:if>
+			<s:elseif test="表达式">
+				标签体
+			</s:elseif>
+				允许出现多个elseif标签
+				...
+			<s:else>
+				标签体
+			</s:else>
+		elseif:
+		else:
+		iterator:	(主要用于对集合元素进行迭代List、Set、数组、Map)
+			可指定三个属性:
+			>value:指定被迭代的集合,通常使用ognl表达式,如果没有指定该属性,则使用ValueStack栈顶集合
+			>id:指定集合元素的ID
+			>status:指定迭代时的IteratorStatus实例,通过该属性判断当前迭代元素是否最后一个即索引
+				IteratorStatus包含如下方法:(参考Struts Core文档)
+					>getCount()
+					>getIndex()
+					>isEven()
+					>isFirst()
+					>isLast()
+					>isOdd()
+			<s:iterator value="{'疯狂Java讲义',
+				'轻量级Java EE企业应用实战',
+				'经典Java EE企业应用实战'}"
+				id="name" status="st">
+				<tr <s:if test="#st.odd">
+					style="background-color:#bbbbbb"</s:if>>
+					<td><s:property value="name"/></td>
+				</tr>
+			</s:iterator>
+		append:		(将多个子标签<s:param../>指定的集合拼接起来,指定var属性集合被放入Stack Context中)
+			
+			<s:append var="newList">	（新集合名字为newList,拼接后顺序:Java、轻量EE、经典、www、blog）
+				<s:param value="{'疯狂Java讲义',		
+					'轻量级Java EE企业应用实战',
+					'经典Java EE企业应用实战'}" />
+				<s:param value="{'http://www.crazyit.org', 
+					'http://blog.crazyit.org'}" />
+			</s:append>
+			(List与Map拼接,List中的值作为key)
+		generator:	(将一个字符串转化为一个Iterator集合,类似于String的split(),在标签体内生成的集合位于ValueStack顶端一旦标签结束便被移出)
+			有如下属性:
+				count:生成集合元素的总数
+				separator:解析字符串分隔符
+				val:被解析字符串
+				converter:转化器,将集合每个字符串转化成对象,该属性值必须是一个org.apache.Struts2.util.IteratorGenerator.Converter对象
+				var:生成的对象放入Stack Context,还会设置成request范围的属性
+
+				<s:generator val="'疯狂Java讲义
+						,轻量级Java EE企业应用实战,
+						经典Java EE企业应用实战'" separator=",">
+					<!-- 没有指定迭代哪个集合，直接迭代ValueStack顶端的集合 -->
+					<s:iterator status="st">
+						<tr <s:if test="#st.odd">
+							style="background-color:#bbbbbb"</s:if>>
+							<td><s:property/></td>
+						</tr>
+					</s:iterator>
+				</s:generator>
+		merge:		(与append拼接方式不同,)
+				<s:append var="newList">	（新集合名字为newList,拼接后顺序:Java、www、轻量EE、、blog）
+					<s:param value="{'疯狂Java讲义',		
+						'轻量级Java EE企业应用实战',
+						 />
+					<s:param value="{'http://www.crazyit.org', 
+						'http://blog.crazyit.org'}" />
+				</s:append>
+		subset:		(取得集合的自己,底层通过org.apache.struts2.util.Subset.IteratorFilter类提供实现,在该标签内将生成子集放在ValueStack栈顶标签结束移出)
+			有如下属性:
+				count:取得子集个数,如果不指定取得全部
+				source:指定源集合,如果不指定取得ValueStack栈顶集合
+				start:开始截取位置
+				decider:是否选中该元素,该属性指定一个org.apache.struts2.util.SubsetIteratorFilter.Decider对象
+				var:将生产Iterator设置成page范围
+
+				public class MyDecider 
+					implements SubsetIteratorFilter.Decider
+				{
+					//实现Decider接口必须实现的decide方法，
+					//该方法决定集合中的元素是否被选入子集
+					public boolean decide(Object element) throws Exception
+					{
+						String str = (String)element;
+						//如果集合元素（字符串）中包含Java EE子串，即可被选入子集
+						return str.indexOf("Java EE") > 0;
+					}
+				}
+				
+				<s:bean var="mydecider" name="org.crazyit.app.util.MyDecider"/>
+				<!-- 使用自定义的Decider实例来截取目标集合，生成子集
+					指定var属性，将生成的Itertor放入pageScope中 -->
+				<s:subset source="{'疯狂Java讲义'
+					,'轻量级Java EE企业应用实战'
+					,'经典Java EE企业应用实战'
+					,'疯狂Ajax讲义'
+					,'疯狂XML讲义'}" 
+					decider="#mydecider"
+					var="newList"/>
+				直接输出page范围的newList属性：<br/>
+				${pageScope.newList}
+				<table border="1" width="240">
+				<!-- 迭代page范围内的newList属性 -->
+				<s:iterator status="st" value="#attr.newList">
+					<tr <s:if test="#st.odd">
+						style="background-color:#bbbbbb"</s:if>>
+						<td><s:property/></td>
+					</tr>
+				</s:iterator>
+
+		sort:	(对指定集合进行排序,必须提供自己的排序规则,实现自己的Component,在标签内生成子集合放在ValueStack栈顶标签结束移出)
+			有如下属性:
+				component:指定进行排序的Component实例
+				source:被排序集合,如果不指定则对ValueStack栈顶集合进行排序
+				var:将生成的Iterator对象设置成page范围,不放入Stack Context中
+
+				public class MyComparator implements Comparator
+				{
+					//决定两个元素大小的方法
+					public int compare(Object element1, Object element2)
+					{
+						//根据元素字符串长度来决定大小	
+						return element1.toString().length()
+							- element2.toString().length();
+					}
+				}
+
+				<s:bean var="mycomparator" name="org.crazyit.app.util.MyComparator"/>
+				<!-- 使用自定义的排序规则对目标集合进行排序 -->
+				<s:sort source="{'疯狂Java讲义'
+					,'轻量级Java EE企业应用实战'
+					,'经典Java EE企业应用实战'
+					,'疯狂Ajax讲义'
+					,'疯狂XML讲义'}" 
+					comparator="#mycomparator"
+					var="sortedList"/>
+				输出page范围的sortedList属性：<br/>
+				${pageScope.sortedList}
+				<table border="1" width="300">
+				<!-- 迭代page范围内的sortedList属性 -->
+				<s:iterator status="st" value="#attr.sortedList">	
+					<tr <s:if test="#st.odd">
+						style="background-color:#bbbbbb"</s:if>>
+						<td><s:property/></td>
+					</tr>
+				</s:iterator>
+		
+	数据标签:	(提供各种数据访问功能,包含显示Action里的属性,以及生成国际化输出)
+		action:	(在JSP页面中直接调用Action)
+			有如下属性:
+				var:将该Action放入Stack Context中
+				name:指定该标签调用哪个Action
+				namespace:指定该标签调用Action的namespace
+				executeResult:指定是否将Action处理结果页面包含到本页面,默认为false不包含
+				ignoreContextParams:指定该页面中的请求参数是否需要传入调用的Action
+		bean:	(用于创建JavaBean实例,要通过<param../>标签传入属性必须提供setter方法,要访问某个属性要提供getter
+			 在标签体内创建的JavaBean被放入ValueStack顶端,标签结束移出)
+			有如下属性:
+				name:指定要实例化的JavaBean实现类
+				var:该JavaBean放入Stack Context中,并放入requestScope中
+
+				<s:bean name="org.crazyit.app.dto.Person" var="p">
+					<!-- 使用param标签为Person类的实例传入参数 -->
+					<s:param name="name" value="'yeeku'"/>
+					<s:param name="age" value="29"/>
+				</s:bean>
+				<!-- 根据JavaBean实例指定的var属性来访问JavaBean实例 -->
+				Person实例的name为：<s:property value="#p.name"/><br/>
+				Person实例的age为：<s:property value="#p.age"/><br/>
+				${requestScope.p}
+
+		date:	(格式化输出一个日期,还可以计算指定日期和当前时刻的时差)
+			有如下属性:
+				format:根据指定格式格式化日期
+				nice:指定是否输出指定日期和当前时刻之差,默认为false
+				name:指定要格式化日期值
+				var:将格式化后的字符串放入Stack Context中,并放入requestScope中
+				（不同时指定format和nice,如果都没有指定,系统回到国际化资源文件中寻找struts.date.format的消息,如果国际化资源中没有找到,则默认采用Dateformat.MEDIUM）
+
+				<s:bean var="now" name="java.util.Date"/>
+				nice="false"，且指定format="dd/MM/yyyy"<br/>
+				<s:date name="#now" format="dd/MM/yyyy" nice="false"/><hr/>
+		debug:	(用于辅助测试,在页面上生成一个超级链接,通过该链接可以查看到ValueStack和Stack Context中所有信息)
+		include:	(将一个恶JSP或Servlet包含到本页面)
+			有如下属性:
+				value:指定被包含的JSP页面或Servlet
+				(还可以指定多个<s:param../>子标签,将多个参数传入被包含的JSP页面或Servlet)
+
+				<s:include value="included-file.jsp">
+					<s:param name="author" value="'yeeku'"/>
+				</s:include>
+				
+				author参数值为:${param.author}
+		param:	(主要用于为其他标签提供参数)
+			有如下参数:
+				name:指定需要设置参数的参数名
+				value:指定需要设置参数的参数值
+				value也可不指定:<param name="color">blue</param>(此处传入的是blue对象,要传入字符串应这样"blue")
+				<param name="color" value="blue"/>（此处传入的是blue对象,要传入字符串应这样"'blue'"）
+		push:	(用于将某个值放到ValueStack的栈顶,从而可以更简单的访问该值,只有在标签内放入的值才存在,离开push标签值便被移出)
+			有如下属性:
+				value:指定需要放到ValueStack栈顶的值
+
+				<!-- 使用bean标签创建一个JavaBean实例，
+					指定var属性，并将其放入Stack Context中 -->
+				<s:bean name="org.crazyit.app.dto.Person" var="p">
+					<s:param name="name" value="'yeeku'"/>
+					<s:param name="age" value="29"/>
+				</s:bean>
+				<!-- 将Stack Context中的p对象放入ValueStack栈顶-->
+				<s:push value="#p">
+					<!-- 输出ValueStack栈顶对象的name和age属性 -->
+					ValueStack栈顶对象的name属性：<s:property value="name"/><br/>
+					ValueStack栈顶对象的age属性：<s:property value="age"/><br/>
+				</s:push>
+		set:	(将某个值放入指定范围内,例如application、session,可以理解为定义一个新变量,且将一个已有值复制给新变量,并且将新变量放到指定范围)
+			有如下属性:
+				scope:指定新变量被放置的范围,可以是application、session、request、page、action,默认为action
+				value:指定将赋给的变量,如果没有指定该属性,则将ValueStack栈顶的值赋给新变量
+				var:将该值放入ValueStack中
+				（如果指定action范围,则将该值放入request范围,并被放入OGNL的Stack Context中）
+
+				<s:bean name="org.crazyit.app.dto.Person" id="p">
+					<s:param name="name" value="'yeeku'"/>
+					<s:param name="age" value="29"/>
+				</s:bean>
+				将Stack Context中的p值放入默认范围（action）内。<br/>
+				<s:set value="#p" name="xxx"/>
+				Stack Context内xxx对象的name属性：<s:property value="#xxx.name"/><br/>
+				Stack Context内xxx对象的age属性：<s:property value="#xxx.age"/><br/>
+				request范围的xxx对象的name属性：${requestScope.xxx.name}<br/>
+				request范围的xxx对象的age属性：${requestScope.xxx.age}<hr/>
+				将Stack Context中的p值放入application范围内。<br/>
+				<s:set value="#p" name="yyy" scope="application"/>
+				application范围的yyy对象的name属性：${applicationScope.yyy.name}<br/>
+				application范围的yyy对象的age属性：${applicationScope.yyy.age}<hr/>
+				将Stack Context中的p值放入session范围内。<br/>
+				<s:set value="#p" name="zzz" scope="session"/>
+				session范围的zzz对象的name属性：${sessionScope.zzz.name}<br/>
+				session范围的zzz对象的age属性：${sessionScope.zzz.age}
+
+		url:	(用于生成一个URL地址值,通过指定<s:param../>子元素向指定URL发送请求参数)
+			有如下属性:
+				action:指定生成URL地址为那个Action,如果没指定就使用value作为URL地址值
+				anchor:指定URL的锚点
+				encode:指定是否需要对参数进行编码,默认是true
+				escapeAmp:指定是否需要对&进行编码,默认为true
+				forceAddSchemeHostAndPort:指定是否需要在URL对应的地址里强制添加schema、主机和端口
+				includeContext:指定是否需要将当前上下文包含在URL地址中
+				includeParams:指定是否包含请求参数,该属性值只能是none、get或all,默认为get
+				method:指定Action的方法,当用Action生成URL时如果指定该属性则URL将链接到指定Action的特地方法
+				namespace:指定命名空间,当用Action生成URL时,如果指定该属性,则URL将链接到此namespace的特地Action处
+				portletMode:指定结果页面的portlet模式
+				schema:用于设置schema属性
+				value:指定URL的地址值,如果没指定就用action属性指定的Action作为URL地址
+				var:把该链接值放入Struts2的ValueStack中
+				windowState:指定结果页面的portlet的窗口状态
+				（如果action、value都没指定就以当前页面作为url的地址值）
+
+				只指定value属性的形式。<br/>
+				<s:url value="editGadget.action"/>
+				<hr/>
+				指定action属性,且使用param传入参数的形式。<br/>
+				<s:url action="showBook">
+					<s:param name="author" value="'yeeku'" />
+				</s:url>
+				<hr/>
+				既不指定action属性,也不指定value属性,且使用param传入参数的形式。<br/>
+				<s:url includeParams="get"  >
+					<s:param name="id" value="%{'22'}"/>
+				</s:url>
+				<hr/>
+				同时指定action属性和value属性,且使用param传入参数的形式。<br/>
+				<s:url action="showBook" value="xxxx">
+					<s:param name="author" value="'yeeku'" />
+				</s:url>
+		property:	（输出指定值）
+			有如下属性:
+				default:如果输出的属性值为null,则显示default属性指定的值
+				escape:指定是否escape HTML代码,默认为true
+				value:指定需要输出的属性值,如果没有指定,则输出ValueStack栈顶的值
+
+
+						
+	主题和模板:	(模板是一个UI标签的外在表现形式,系列模板就会形成一个主题,当需要使用特定模板来表现某个UI标签时,应让主题来负责模板的加载)
+		设置主题的方法有如下几种:	（前面的会覆盖后面的）
+			>设定特定UI标签上的theme属性来指定主题
+			>设定特地UI标签外围的Form标签的theme属性来指定主题
+			>取得page会话范围内以theme为名称的属性来确定主题
+			>取得request会话范围内以theme为名称的属性来确定主题
+			>取得session会话范围内以theme为名称的属性来确定主题
+			>取得application会话范围内以theme为名称的属性来确定主题
+			>设置名为struts.ui.theme的常量(默认是xhtml)来确定默认主题,该常量可以在struts.xml中确定
+
+		建议:
+			>如果要改变整个表单的主题,可以直接设置该表单的theme属性
+			>如果需要让某次会话使用特定主题,可以通过session中设置theme
+			>如果改变整个应用主题,可通过struts.ui.theme来实现
+
+			(一旦指定了theme属性后,Struts2就会根据主题来加载模板)
+		模板目录:	(通过struts.ui.templateDir常量来指定,默认值是template)
+			>搜索Web应用里/template/xhtml/*.ftl
+			>搜索类加载路径下/template/xhtml/*.ftl	(默认为FreeMarker模板技术)
+
+		Struts2默认提供三种主题:	(在struts-core-*.*.*.jar下template路径下可以看到对应主题各自主题下有对应模板文件)
+			>simple			（只生成简单html元素,没有额外布局行为）
+			>xhtml			（默认主题,对simple进行扩展）
+				在simple主题下增加如下特性:
+				>标准两列布局
+				>增加配套Label,该label位置由labelposition属性设置
+				>自动输出校验错误提示
+				>输出JavaScript客户端校验
+			>css_xhtml		（在xhtml上增加了css样式控制）
+		
+			（在Struts2.1以后,Ajax主题在struts2-dojo-plugin-*.*.*.jar下）
+		
+		自定义主题:
+			通常扩展现有主题:
+				模板文件:
+					<h3>作者李刚已经出版的图书:</h3>
+					<#include "/${parameters.templateDir}/xhtml/controlheader.ftl" />
+					<#include "/${parameters.templateDir}/simple/select.ftl" />
+					<#include "/${parameters.templateDir}/xhtml/controlfooter.ftl" />
+				必须在主题目录下提供一个theme.properties文件,指定自定义模板文件是以那个模板文件为基础扩展的:
+					parent=xhtml
+				使用:
+					<s:select name="aa" theme="lee" list="{'疯狂Java讲义'
+						,'轻量级Java EE企业应用实战'
+						,'经典Java EE企业应用实战',
+						'疯狂Ajax讲义'}" size="5"/>
+
+	表单标签:	(所有表单标签都继承了UIBean类,所有表单元素标签都有一个form属性,这个属性应用表单元素所在表单)
+		表单标签的name和value属性:	(每个表单元素会被映射成Action属性,如果表单对应的Action已经被实例化（该表单被提交过）、且其
+						 属性有值,则Action对应表单元素会显示该值,这个值作为表单标签的value)
+					表单标签的name属性可使用表达式:	(name属性封装一个请求参数,请求参数是被封装到Action属性的)
+						<!--将下面文本框的值绑定到Action的person属性的firstName属性-->
+						<s:textfield name="person.firstName"/>
+		checkboxlist:	(一次创建多个复选框,根据List属性生成多个<input type="checkbox"../>)
+			有如下属性:
+				list:指定集合生成多个<input teyp="checkbox.."/>
+				listKey:指定集合中某个属性作为复选框value
+				listValue:指定集合中某个属性作为复选框标签
+				(还有其他通用属性)
+
+				<s:checkboxlist name="b" label="请选择您想选择出版日期" 
+					labelposition="top"	list="#{'疯狂Java讲义':'2008年9月'
+					,'轻量级Java EE企业应用实战':'2008月12月'
+					,'经典Java EE企业应用实战':'2010年8月'}"
+					listKey="key"
+					listValue="value"/>
+		doubleselect:	(生成级联列表框（当选择第一个下拉列表框时第二个会随之改变）,该标签必须放在<s:form../>标签中使用,且<s:from../>必须使用action属性)
+			有如下属性:
+				name:第一个下拉列表框name属性
+				list:第一个下拉列表框集合
+				listKey:指定集合中的某个属性作为第一个下拉列表框的value
+				listValue:指定集合中的某个属性作为第一个下拉列表框的标签
+				doubleList:第二个下拉列表框集合
+				doubleListKey:指定集合中某个属性作为第二个下拉列表框的value
+				doubleListValue:指定集合中某个属性作为第二个下拉列表框的标签
+				doubleName:第二个下拉列表框name属性
+
+				<s:form action="x">
+					<s:doubleselect
+						label="请选择您喜欢的图书"
+						name="author" list="{'李刚', 'David'}"
+						doubleList="top == '李刚' ? {'轻量级Java EE企业应用实战',
+						'经典Java EE企业应用实战','疯狂Java讲义'}:
+						{'JavaScript: The Definitive Guide'}" 
+						doubleName="book"/>	
+				</s:form>
+
+				第一个下拉列表包含三个以上:
+
+					<s:set name="bs" value="#{'李刚': {'疯狂Java讲义', 
+						'轻量级Java EE企业应用实战','经典Java EE企业应用实战'},
+						'David': {'JavaScript: The Definitive Guide'},
+						'Johnson': {'Expert One-on-One J2EE Design and Development'}}"/>
+					<!-- 使用Map对象来生成级联列表框 -->
+					<s:form action="x">
+						<s:doubleselect
+							label="请选择您喜欢的图书"
+							size="3"
+							name="author" list="#bs.keySet()"
+							doubleList="#bs[top]" 
+							doubleSize="3"
+							doubleName="book"/>	
+					</s:form>
+									
+		head:	(一般使用Struts2UI标签、javascript客户端校验等需要JavaScript库和CSS支持功能时,都应该先使用head标签)
+		optiontransferselect:	(生成两个列表框,生成系列按钮控制两个列表框之间移动、升降,提交该表单时对应请求参数都会被提交)
+					（参考Struts2API）
+		select:	(生成一个下拉列表框,根据list属性生成下拉列表框选项)
+			有如下属性:
+				listKey:指定集合中某个属性作为列表框value
+				listValue:指定集合中某个属性作为列表框标签
+				multiple:指定列表框是否允许多选
+
+				<s:select name="b" label="请选择您想选择出版日期" labelposition="top" 
+					list="#{'疯狂Java讲义':'2008年9月',
+					'轻量级Java EE企业应用实战':'2008月12月', 
+					'经典Java EE企业应用实战':'2010年7月'}"
+					listKey="key"
+					listValue="value"/>
+		radio:	(生成多个单选钮)
+				<s:radio name="b" label="请选择您想选择出版日期" labelposition="top"
+					list="#{'疯狂Java讲义':'2008年9月'
+					,'轻量级Java EE企业应用实战':'2008月12月'
+					,'经典Java EE企业应用实战':'2010年8月'}"
+					listKey="key"
+					listValue="value"/>
+		optgroup:	(必须放在<s:select../>中使用,生成一个下拉列表框组,可使用label属性指定组名)
+			
+		
+				<s:select label="选择您喜欢的图书" name="book" size="7"
+					list="#{'疯狂Java讲义':'李刚'
+						,'轻量级Java EE企业应用实战':'李刚'
+						,'经典Java EE企业应用实战':'李刚'}"
+					listKey="value"
+					listValue="key">
+					<!-- 使用Map对象来生成选择框的选项组 -->
+					<s:optgroup label="Rod Johnson"
+						list="#{'Expert One-on-One J2EE Design and Development':'Johnson'}"
+						listKey="value"
+						listValue="key"/>
+					<s:optgroup label="David Flanagan"
+						list="#{'JavaScript: The Definitive Guide':'David'}"
+						listKey="value"
+						listValue="key"/>
+				</s:select>	
+		token:	(避免刷新页面导致的多次提交,默认token生成的隐藏域的name为struts.token,因此不要在表单中另外再定义一个名为struts.token的表单域)
+			（如果表单页面没有使用<s:token/>标签,千万不要使用token拦截器,否则将导致无法提交表单）
+			<s:form action="pro">
+				<!-- 普通表单域 -->
+				<s:textfield name="book" key="book"/>
+				<!-- 用于防刷新的token -->
+				<s:token/>
+				<s:submit value="提交"/>
+			</s:form>
+
+			public class ProAction extends ActionSupport
+			{
+				private String book;
+
+				//book属性的setter和getter方法
+				....
+			}
+
+			<action name="pro" class="org.crazyit.app.action.ProAction">
+				<!-- 使用系统默认的拦截器栈 -->
+				<interceptor-ref name="defaultStack"/>
+				<!-- 使用防刷新的token拦截器 -->
+				<interceptor-ref name="token"/>			(启用token拦截器)
+				<!-- 定义重复提交转向的视图，该逻辑视图名必须是invalid.token -->
+				<result name="invalid.token">/refresh.jsp</result>
+				<!-- 如果处理结果返回success，对应/show.jsp视图资源 -->
+				<result name="success">/show.jsp</result>
+			</action>
+
+		updownselect:	(与select类似,只是该标签生成的列表项可上下移动）
+			参考Struts2API
+
+			<s:updownselect name="b" label="请选择您想选择出版日期"
+				labelposition="top"
+				moveDownLabel="向下移动"
+				list="#{'疯狂Java讲义':'2008年9月'
+				,'轻量级Java EE企业应用实战':'2008月12月'
+				,'经典Java EE企业应用实战':'2010年6月'}"
+				listKey="key"
+				emptyOption="true"			（通过该属性会为列表框增加一个空选项）
+				listValue="value"/>
+		
+	非表单标签:
+		actionerror:	(输出Action实例的getActionErrors()方法返回值)
+		actionmessage:	（输出Action实例的getActionMessages()方法返回值）
+
+			public class DemoAction extends ActionSupport
+			{
+				public String execute()
+				{
+					//添加两条Error信息
+					addActionError("第一条错误消息！"); 
+					addActionError("第二条错误消息！"); 
+					//添加两条普通信息
+					addActionMessage("第一条普通消息！"); 
+					addActionMessage("第二条普通消息！"); 
+					return SUCCESS;
+				}
+			}
+
+			<s:actionerror/>
+			<s:actionmessage/>
+		component:	（用于创建自定义视图组件,使用自定义视图组件还是基于主题模板管理的）
+			有如下属性:
+				theme:所使用的主题,默认使用xhtml
+				templateDir:自定义主题目录,默认template目录
+				template:自定义组件所使用的模板
+			可在子component中使用param子标签向该标签模板中传入额外参数,如果希望在模板中取得参数,采用:$parameters.paramName或$parameters['paramName']形式
+
+				<s:component template="mytemplate.jsp">
+					<s:param name="list" value="{'疯狂Java讲义'
+					,'轻量级Java EE企业应用实战'
+					,'经典Java EE企业应用实战'}"/>
+				</s:component>
+
+				\template\xhtml\mytemplate.jsp
+					<s:select list="parameters.list"/>
+										
+			(在Struts2.1中如果指定了templateDir、theme属性后,系统不再从默认模板目录下加载视图模板,这就导致无法在自定义模板视图中使用select等标签)
+
+			
+***********************************************************************************************/
+

@@ -1,0 +1,1 @@
+  jdbc.url=jdbc:mysql://localhost:3306/test?&amp;useUnicode=true&amp;characterEncoding=GBK&amp;mysqlEncoding=gbk
